@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Product } from "@/types";
 import { formatProductPrice, formatDate } from "@/lib/utils";
-import { CATEGORY_MAP, PRODUCT_STATUS_LABELS, PRODUCT_STATUS_COLORS } from "@/lib/constants";
+import { CATEGORY_MAP } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 interface ProductCardProps {
@@ -13,9 +13,6 @@ interface ProductCardProps {
 
 export function ProductCard({ product }: ProductCardProps) {
   const image = product.images[0] ?? "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&q=80";
-  const statusLabel = PRODUCT_STATUS_LABELS[product.status];
-  const statusColor = PRODUCT_STATUS_COLORS[product.status];
-  const isSold = product.status === "SOLD";
 
   return (
     <Link href={`/products/${product.id}`} className="group block">
@@ -26,20 +23,8 @@ export function ProductCard({ product }: ProductCardProps) {
             alt={product.title}
             fill
             sizes="(max-width: 768px) 50vw, 33vw"
-            className={cn("object-cover transition-transform group-hover:scale-105", isSold && "opacity-60 grayscale")}
+            className="object-cover transition-transform group-hover:scale-105"
           />
-          {isSold && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className="bg-black/60 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">
-                Продано
-              </span>
-            </div>
-          )}
-          <div className="absolute top-2 left-2">
-            <span className={cn("text-xs font-medium px-2 py-0.5 rounded-full", statusColor)}>
-              {statusLabel}
-            </span>
-          </div>
         </div>
 
         <div className="p-3">
@@ -49,10 +34,10 @@ export function ProductCard({ product }: ProductCardProps) {
           <h3 className="text-sm font-semibold text-[var(--tg-theme-text-color,#111)] line-clamp-2 leading-tight mb-1">
             {product.title}
           </h3>
-          <div className="flex items-center justify-between mt-2">
+          <div className="flex items-center justify-between mt-2 flex-wrap gap-1">
             <span
               className={cn(
-                "text-base font-bold",
+                "text-base font-bold shrink-0",
                 product.isFree
                   ? "text-green-600"
                   : "text-[var(--tg-theme-accent-text-color,#2481cc)]"

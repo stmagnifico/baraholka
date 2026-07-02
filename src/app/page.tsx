@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/Button";
 import { Product } from "@/types";
 import { APP_NAME } from "@/lib/constants";
+import { useDebounce } from "@/hooks/useDebounce";
 
 export default function CatalogPage() {
   const router = useRouter();
@@ -19,6 +20,7 @@ export default function CatalogPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [category, setCategory] = useState("");
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebounce(search, 300);
   const [page, setPage] = useState(1);
 
   const fetchProducts = useCallback(
@@ -44,8 +46,8 @@ export default function CatalogPage() {
 
   useEffect(() => {
     setPage(1);
-    fetchProducts(category, search, 1, true);
-  }, [category, search, fetchProducts]);
+    fetchProducts(category, debouncedSearch, 1, true);
+  }, [category, debouncedSearch, fetchProducts]);
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -56,7 +58,7 @@ export default function CatalogPage() {
   const handleLoadMore = () => {
     const next = page + 1;
     setPage(next);
-    fetchProducts(category, search, next, false);
+    fetchProducts(category, debouncedSearch, next, false);
   };
 
   const hasMore = products.length < total;
