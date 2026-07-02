@@ -95,6 +95,7 @@ interface WebApp {
   };
   onEvent: (event: string, callback: () => void) => void;
   offEvent: (event: string, callback: () => void) => void;
+  openTelegramLink: (url: string) => void;
 }
 
 declare global {

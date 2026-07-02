@@ -26,7 +26,7 @@ interface PageProps {
 export default function ProductPage({ params }: PageProps) {
   const { id } = use(params);
   const router = useRouter();
-  const { user } = useTelegramContext();
+  const { user, webApp } = useTelegramContext();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -65,9 +65,18 @@ export default function ProductPage({ params }: PageProps) {
   const isSold = product.status === "SOLD";
   const isOwner = user?.id === Number(product.userId);
   const contactUrl =
-    !isOwner && product.user
+    !isOwner && product.user?.username
       ? getTelegramContactUrl({ id: product.userId, username: product.user.username })
       : null;
+
+  const handleContact = () => {
+    if (!contactUrl) return;
+    if (webApp?.openTelegramLink) {
+      webApp.openTelegramLink(contactUrl);
+    } else {
+      window.open(contactUrl, "_blank", "noopener,noreferrer");
+    }
+  };
 
   return (
     <div className="pb-8">
@@ -157,12 +166,10 @@ export default function ProductPage({ params }: PageProps) {
         )}
 
         {!isSold && contactUrl && (
-          <a href={contactUrl} target="_blank" rel="noreferrer">
-            <Button size="lg" className="gap-2">
-              <MessageCircle className="w-5 h-5" />
-              Зв&apos;язатися з продавцем
-            </Button>
-          </a>
+          <Button size="lg" className="gap-2" onClick={handleContact}>
+            <MessageCircle className="w-5 h-5" />
+            Зв&apos;язатися з продавцем
+          </Button>
         )}
       </div>
     </div>

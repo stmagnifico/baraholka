@@ -2,12 +2,13 @@
 
 import { useRouter } from "next/navigation";
 import { ProductForm } from "@/components/ProductForm";
+import { UsernameRequired } from "@/components/UsernameRequired";
 import { useTelegramContext } from "@/context/TelegramContext";
 import { useState } from "react";
 
 export default function NewProductPage() {
   const router = useRouter();
-  const { initData, isTelegramEnv } = useTelegramContext();
+  const { user, initData, isTelegramEnv, isReady } = useTelegramContext();
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (data: {
@@ -55,6 +56,25 @@ export default function NewProductPage() {
       setLoading(false);
     }
   };
+
+  if (!isReady) return null;
+
+  if (!isTelegramEnv) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] px-6 text-center">
+        <p className="text-base font-semibold text-[var(--tg-theme-text-color,#111)] mb-2">
+          Відкрийте через Telegram
+        </p>
+        <p className="text-sm text-[var(--tg-theme-hint-color,#888)]">
+          Для публікації оголошень потрібно запустити застосунок у Telegram.
+        </p>
+      </div>
+    );
+  }
+
+  if (!user?.username) {
+    return <UsernameRequired />;
+  }
 
   return (
     <ProductForm

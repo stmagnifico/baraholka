@@ -35,3 +35,6 @@ export const MOCK_IMAGES = [
 
 export const APP_NAME = "Барахолка Парк Совіньйон";
 export const PAGE_SIZE = 20;
+
+export const USERNAME_REQUIRED_ERROR =
+  "Щоб продавати на барахолці, задайте username в Telegram: Налаштування → Редагувати профіль → Ім'я користувача.";

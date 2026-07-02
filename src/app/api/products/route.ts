@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { validateInitData } from "@/lib/telegram";
-import { PAGE_SIZE, MOCK_IMAGES } from "@/lib/constants";
+import { PAGE_SIZE, MOCK_IMAGES, USERNAME_REQUIRED_ERROR } from "@/lib/constants";
 import { notifySubscribersAboutProduct } from "@/lib/bot/notifications";
 
 function serializeProduct(p: {
@@ -80,11 +80,17 @@ export async function POST(req: NextRequest) {
   }
 
   let userId: number;
+  let username: string | undefined;
   try {
     const session = validateInitData(initData);
     userId = session.user.id;
+    username = session.user.username;
   } catch {
     return NextResponse.json({ error: "Невалідний initData" }, { status: 401 });
+  }
+
+  if (!username) {
+    return NextResponse.json({ error: USERNAME_REQUIRED_ERROR }, { status: 400 });
   }
 
   const body = await req.json();
