@@ -1,3 +1,5 @@
+import "server-only";
+
 import { validate, parse } from "@tma.js/init-data-node";
 
 export interface TelegramUserData {
@@ -46,14 +48,4 @@ export function validateInitData(initData: string): ValidatedSession {
     },
     authDate: parsed.auth_date,
   };
-}
-
-export function getTelegramContactUrl(user: {
-  id: bigint | number | string;
-  username?: string | null;
-}): string {
-  if (user.username) {
-    return `https://t.me/${user.username}`;
-  }
-  return `tg://user?id=${user.id}`;
 }

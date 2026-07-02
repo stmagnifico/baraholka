@@ -14,7 +14,7 @@ import {
 import { Product } from "@/types";
 import { formatPrice, formatDate, getDisplayName } from "@/lib/utils";
 import { CATEGORY_MAP, PRODUCT_STATUS_LABELS, PRODUCT_STATUS_COLORS } from "@/lib/constants";
-import { getTelegramContactUrl } from "@/lib/telegram";
+import { getTelegramContactUrl } from "@/lib/telegram-client";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { cn } from "@/lib/utils";
