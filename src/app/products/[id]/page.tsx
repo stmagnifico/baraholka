@@ -2,21 +2,21 @@
 
 import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
 import {
   ArrowLeft,
   MessageCircle,
   Tag,
   Calendar,
-  ChevronLeft,
-  ChevronRight,
+  Pencil,
 } from "lucide-react";
 import { Product } from "@/types";
-import { formatPrice, formatDate, getDisplayName } from "@/lib/utils";
+import { formatProductPrice, formatDate, getDisplayName } from "@/lib/utils";
 import { CATEGORY_MAP, PRODUCT_STATUS_LABELS, PRODUCT_STATUS_COLORS } from "@/lib/constants";
 import { getTelegramContactUrl } from "@/lib/telegram-client";
+import { useTelegramContext } from "@/context/TelegramContext";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
+import { ImageGallery } from "@/components/ImageGallery";
 import { cn } from "@/lib/utils";
 
 interface PageProps {
@@ -26,9 +26,9 @@ interface PageProps {
 export default function ProductPage({ params }: PageProps) {
   const { id } = use(params);
   const router = useRouter();
+  const { user } = useTelegramContext();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
-  const [imgIndex, setImgIndex] = useState(0);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -57,81 +57,32 @@ export default function ProductPage({ params }: PageProps) {
     );
   }
 
-  const images = product.images.length > 0
-    ? product.images
-    : ["https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&q=80"];
+  const images =
+    product.images.length > 0
+      ? product.images
+      : ["https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&q=80"];
 
   const isSold = product.status === "SOLD";
-  const contactUrl = product.user
-    ? getTelegramContactUrl({ id: product.userId, username: product.user.username })
-    : null;
+  const isOwner = user?.id === Number(product.userId);
+  const contactUrl =
+    !isOwner && product.user
+      ? getTelegramContactUrl({ id: product.userId, username: product.user.username })
+      : null;
 
   return (
     <div className="pb-8">
-      {/* Image gallery */}
-      <div className="relative bg-black">
-        {/* Back button */}
+      <div className="relative">
         <button
           onClick={() => router.back()}
-          className="absolute top-4 left-4 z-10 w-9 h-9 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center text-white"
+          className="absolute top-4 left-4 z-20 w-9 h-9 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center text-white"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
 
-        <div className="relative aspect-square">
-          <Image
-            src={images[imgIndex]}
-            alt={product.title}
-            fill
-            className={cn("object-cover", isSold && "opacity-70 grayscale")}
-            priority
-          />
-          {isSold && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className="bg-black/60 text-white font-bold text-lg px-5 py-2 rounded-full uppercase tracking-widest">
-                Продано
-              </span>
-            </div>
-          )}
-        </div>
-
-        {/* Thumbnails nav */}
-        {images.length > 1 && (
-          <>
-            <button
-              onClick={() => setImgIndex((i) => Math.max(0, i - 1))}
-              disabled={imgIndex === 0}
-              className="absolute left-3 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-black/40 flex items-center justify-center text-white disabled:opacity-30"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => setImgIndex((i) => Math.min(images.length - 1, i + 1))}
-              disabled={imgIndex === images.length - 1}
-              className="absolute right-3 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-black/40 flex items-center justify-center text-white disabled:opacity-30"
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
-
-            <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5">
-              {images.map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setImgIndex(i)}
-                  className={cn(
-                    "w-1.5 h-1.5 rounded-full transition-all",
-                    i === imgIndex ? "bg-white w-4" : "bg-white/50"
-                  )}
-                />
-              ))}
-            </div>
-          </>
-        )}
+        <ImageGallery images={images} alt={product.title} isSold={isSold} />
       </div>
 
-      {/* Content */}
       <div className="bg-[var(--tg-theme-bg-color,#fff)] rounded-t-3xl -mt-4 relative px-4 pt-5">
-        {/* Status + category */}
         <div className="flex items-center gap-2 mb-3">
           <span
             className={cn(
@@ -147,15 +98,20 @@ export default function ProductPage({ params }: PageProps) {
           </Badge>
         </div>
 
-        {/* Title & price */}
         <h1 className="text-xl font-bold text-[var(--tg-theme-text-color,#111)] mb-1">
           {product.title}
         </h1>
-        <p className="text-2xl font-extrabold text-[var(--tg-theme-accent-text-color,#2481cc)] mb-4">
-          {formatPrice(product.price, product.currency)}
+        <p
+          className={cn(
+            "text-2xl font-extrabold mb-4",
+            product.isFree
+              ? "text-green-600"
+              : "text-[var(--tg-theme-accent-text-color,#2481cc)]"
+          )}
+        >
+          {formatProductPrice(product)}
         </p>
 
-        {/* Description */}
         <div className="mb-5">
           <h2 className="text-sm font-semibold text-[var(--tg-theme-text-color,#111)] mb-1">
             Опис
@@ -165,13 +121,11 @@ export default function ProductPage({ params }: PageProps) {
           </p>
         </div>
 
-        {/* Meta */}
         <div className="flex items-center gap-1 text-xs text-[var(--tg-theme-hint-color,#888)] mb-6">
           <Calendar className="w-3.5 h-3.5" />
           <span>{formatDate(product.createdAt)}</span>
         </div>
 
-        {/* Seller */}
         {product.user && (
           <div className="flex items-center gap-3 p-3 rounded-2xl bg-[var(--tg-theme-secondary-bg-color,#f5f5f5)] mb-6">
             <div className="w-10 h-10 rounded-full bg-[var(--tg-theme-button-color,#2481cc)] flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
@@ -191,7 +145,17 @@ export default function ProductPage({ params }: PageProps) {
           </div>
         )}
 
-        {/* CTA */}
+        {isOwner && (
+          <Button
+            variant="secondary"
+            className="gap-2 mb-3"
+            onClick={() => router.push(`/products/${product.id}/edit`)}
+          >
+            <Pencil className="w-4 h-4" />
+            Редагувати оголошення
+          </Button>
+        )}
+
         {!isSold && contactUrl && (
           <a href={contactUrl} target="_blank" rel="noreferrer">
             <Button size="lg" className="gap-2">

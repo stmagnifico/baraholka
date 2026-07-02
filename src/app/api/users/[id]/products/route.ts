@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { validateInitData } from "@/lib/telegram";
 
-// GET /api/users/:id/products — current user's own products
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }

@@ -23,6 +23,7 @@ export interface Product {
   title: string;
   description: string;
   price: string;
+  isFree: boolean;
   currency: string;
   category: string;
   images: string[];

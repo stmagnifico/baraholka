@@ -85,10 +85,32 @@ npm run dev
 
 ## Telegram Bot
 
-1. Створіть бота через [@BotFather](https://t.me/BotFather)
+1. Створіть бота через [@BotFather](https://t.me/BotFather) → `/newbot`
 2. Скопіюйте токен у `TELEGRAM_BOT_TOKEN`
-3. Команда `/newapp` → вкажіть URL задеплоєного додатку
-4. Відкрийте Mini App через бота — `initData` буде валідним
+3. Додайте в `.env`:
+   - `WEBAPP_URL` — публічний HTTPS URL застосунку
+   - `TELEGRAM_SETUP_SECRET` — довільний секрет
+   - `TELEGRAM_WEBHOOK_SECRET` — довільний секрет (рекомендовано)
+4. Застосуйте оновлену схему БД: `npm run db:push`
+5. Налаштуйте команди та webhook:
+
+```bash
+WEBAPP_URL=https://your-app.vercel.app \
+TELEGRAM_SETUP_SECRET=your_secret \
+npm run bot:setup
+```
+
+### Команди бота
+
+| Команда | Опис |
+|---|---|
+| `/start` | Вітання + кнопка «Відкрити барахолку» (Mini App) |
+| `/add` | Кнопка додавання оголошення |
+| `/subscribe` | Підписка на категорію або `@username` |
+| `/unsubscribe` | Керування підписками |
+| `/help` | Довідка |
+
+При публікації нового оголошення підписники отримують повідомлення в боті.
 
 ## Безпека
 

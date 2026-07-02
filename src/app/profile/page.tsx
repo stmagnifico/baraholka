@@ -3,10 +3,19 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { Package, Trash2, CheckCircle, ArchiveX, PlusCircle } from "lucide-react";
+import {
+  Package,
+  Trash2,
+  CheckCircle,
+  ArchiveX,
+  PlusCircle,
+  Pencil,
+  EyeOff,
+  Eye,
+} from "lucide-react";
 import { Product, ProductStatus } from "@/types";
 import { useTelegramContext } from "@/context/TelegramContext";
-import { formatPrice, getDisplayName } from "@/lib/utils";
+import { formatProductPrice, getDisplayName } from "@/lib/utils";
 import { CATEGORY_MAP, PRODUCT_STATUS_LABELS, PRODUCT_STATUS_COLORS } from "@/lib/constants";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/EmptyState";
@@ -80,10 +89,10 @@ export default function ProfilePage() {
 
   const activeCount = products.filter((p) => p.status === "ACTIVE").length;
   const soldCount = products.filter((p) => p.status === "SOLD").length;
+  const hiddenCount = products.filter((p) => p.status === "ARCHIVED").length;
 
   return (
     <div className="px-4 pt-4">
-      {/* Profile header */}
       <div className="bg-[var(--tg-theme-bg-color,#fff)] rounded-2xl p-4 mb-4 flex items-center gap-4">
         <div className="relative w-16 h-16 flex-shrink-0">
           {user.photoUrl ? (
@@ -108,20 +117,19 @@ export default function ProfilePage() {
               @{user.username}
             </p>
           )}
-          <div className="flex gap-4 mt-1.5 text-xs text-[var(--tg-theme-hint-color,#888)]">
+          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5 text-xs text-[var(--tg-theme-hint-color,#888)]">
             <span><b className="text-[var(--tg-theme-text-color,#111)]">{activeCount}</b> активних</span>
             <span><b className="text-[var(--tg-theme-text-color,#111)]">{soldCount}</b> продано</span>
+            <span><b className="text-[var(--tg-theme-text-color,#111)]">{hiddenCount}</b> приховано</span>
           </div>
         </div>
       </div>
 
-      {/* Add button */}
       <Button onClick={() => router.push("/products/new")} className="w-full mb-4 gap-2">
         <PlusCircle className="w-5 h-5" />
         Додати оголошення
       </Button>
 
-      {/* Products list */}
       <h2 className="text-base font-bold text-[var(--tg-theme-text-color,#111)] mb-3">
         Мої оголошення
       </h2>
@@ -136,7 +144,7 @@ export default function ProfilePage() {
         <EmptyState
           Icon={Package}
           title="У вас ще немає оголошень"
-          description="Додайте свій перший товар або послугу"
+          description="Додайте свій перший товар"
           action={
             <Button onClick={() => router.push("/products/new")}>
               Додати оголошення
@@ -171,6 +179,67 @@ function ProfileProductCard({
   const router = useRouter();
   const image = product.images[0];
 
+  const actions: Array<{
+    key: string;
+    label: string;
+    icon: React.ReactNode;
+    onClick: () => void;
+    className: string;
+  }> = [];
+
+  if (product.status === "ACTIVE") {
+    actions.push({
+      key: "sold",
+      label: "Продано",
+      icon: <CheckCircle className="w-4 h-4" />,
+      onClick: () => onStatusChange(product.id, "SOLD"),
+      className: "text-green-600 hover:bg-green-50",
+    });
+    actions.push({
+      key: "hide",
+      label: "Приховати",
+      icon: <EyeOff className="w-4 h-4" />,
+      onClick: () => onStatusChange(product.id, "ARCHIVED"),
+      className: "text-yellow-600 hover:bg-yellow-50",
+    });
+  }
+
+  if (product.status === "SOLD") {
+    actions.push({
+      key: "active",
+      label: "В продаж",
+      icon: <ArchiveX className="w-4 h-4" />,
+      onClick: () => onStatusChange(product.id, "ACTIVE"),
+      className: "text-blue-600 hover:bg-blue-50",
+    });
+  }
+
+  if (product.status === "ARCHIVED") {
+    actions.push({
+      key: "publish",
+      label: "Опублікувати",
+      icon: <Eye className="w-4 h-4" />,
+      onClick: () => onStatusChange(product.id, "ACTIVE"),
+      className: "text-blue-600 hover:bg-blue-50",
+    });
+  }
+
+  actions.push({
+    key: "edit",
+    label: "Редагувати",
+    icon: <Pencil className="w-4 h-4" />,
+    onClick: () => router.push(`/products/${product.id}/edit`),
+    className: "text-[var(--tg-theme-text-color,#111)] hover:bg-gray-50",
+  });
+
+  actions.push({
+    key: "delete",
+    label: "Видалити",
+    icon: <Trash2 className="w-4 h-4" />,
+    onClick: () => onDelete(product.id),
+    className: "text-red-500 hover:bg-red-50",
+  });
+
   return (
     <div className="bg-[var(--tg-theme-bg-color,#fff)] rounded-2xl overflow-hidden shadow-sm border border-black/5">
       <button
@@ -199,39 +268,31 @@ function ProfileProductCard({
           <p className="text-sm font-semibold text-[var(--tg-theme-text-color,#111)] truncate">
             {product.title}
           </p>
-          <p className="text-sm font-bold text-[var(--tg-theme-accent-text-color,#2481cc)]">
-            {formatPrice(product.price, product.currency)}
+          <p
+            className={cn(
+              "text-sm font-bold",
+              product.isFree ? "text-green-600" : "text-[var(--tg-theme-accent-text-color,#2481cc)]"
+            )}
+          >
+            {formatProductPrice(product)}
           </p>
         </div>
       </button>
 
-      {/* Actions */}
-      <div className="flex border-t border-black/5 divide-x divide-black/5">
-        {product.status === "ACTIVE" && (
+      <div className="grid border-t border-black/5" style={{ gridTemplateColumns: `repeat(${actions.length}, 1fr)` }}>
+        {actions.map((action) => (
           <button
-            onClick={() => onStatusChange(product.id, "SOLD")}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium text-green-600 hover:bg-green-50 transition-colors"
+            key={action.key}
+            onClick={action.onClick}
+            className={cn(
+              "flex flex-col items-center justify-center gap-1 py-2.5 text-[10px] font-medium transition-colors border-r border-black/5 last:border-r-0",
+              action.className
+            )}
           >
-            <CheckCircle className="w-4 h-4" />
-            Продано
+            {action.icon}
+            {action.label}
           </button>
-        )}
-        {product.status === "SOLD" && (
-          <button
-            onClick={() => onStatusChange(product.id, "ACTIVE")}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium text-blue-600 hover:bg-blue-50 transition-colors"
-          >
-            <ArchiveX className="w-4 h-4" />
-            Повернути в продаж
-          </button>
-        )}
-        <button
-          onClick={() => onDelete(product.id)}
-          className="flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-medium text-red-500 hover:bg-red-50 transition-colors"
-        >
-          <Trash2 className="w-4 h-4" />
-          Видалити
-        </button>
+        ))}
       </div>
     </div>
   );

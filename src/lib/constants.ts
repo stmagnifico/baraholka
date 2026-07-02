@@ -3,7 +3,6 @@ export const CATEGORIES = [
   { id: "kids", label: "Дитячі речі", emoji: "🧸" },
   { id: "home", label: "Дім та затишок", emoji: "🏠" },
   { id: "clothing", label: "Одяг та взуття", emoji: "👗" },
-  { id: "services", label: "Послуги", emoji: "🔧" },
   { id: "other", label: "Різне", emoji: "📦" },
 ] as const;
 
@@ -16,7 +15,7 @@ export const CATEGORY_MAP = Object.fromEntries(
 export const PRODUCT_STATUS_LABELS: Record<string, string> = {
   ACTIVE: "Активне",
   SOLD: "Продано",
-  ARCHIVED: "Архів",
+  ARCHIVED: "Приховано",
 };
 
 export const PRODUCT_STATUS_COLORS: Record<string, string> = {
@@ -25,7 +24,6 @@ export const PRODUCT_STATUS_COLORS: Record<string, string> = {
   ARCHIVED: "bg-yellow-100 text-yellow-700",
 };
 
-// Тестові зображення-заглушки (Unsplash)
 export const MOCK_IMAGES = [
   "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&q=80",
   "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=800&q=80",

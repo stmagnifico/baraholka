@@ -2,12 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { validateInitData } from "@/lib/telegram";
 import { PAGE_SIZE, MOCK_IMAGES } from "@/lib/constants";
+import { notifySubscribersAboutProduct } from "@/lib/bot/notifications";
 
 function serializeProduct(p: {
   id: string;
   title: string;
   description: string;
   price: { toString: () => string };
+  isFree: boolean;
   currency: string;
   category: string;
   images: string[];
@@ -29,13 +31,10 @@ function serializeProduct(p: {
     userId: p.userId.toString(),
     createdAt: p.createdAt.toISOString(),
     updatedAt: p.updatedAt.toISOString(),
-    user: p.user
-      ? { ...p.user, id: p.user.id.toString() }
-      : undefined,
+    user: p.user ? { ...p.user, id: p.user.id.toString() } : undefined,
   };
 }
 
-// GET /api/products?category=&search=&page=1
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const category = searchParams.get("category") ?? "";
@@ -74,7 +73,6 @@ export async function GET(req: NextRequest) {
   });
 }
 
-// POST /api/products  — requires initData header
 export async function POST(req: NextRequest) {
   const initData = req.headers.get("x-init-data") ?? "";
   if (!initData) {
@@ -90,16 +88,22 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { title, description, price, category, images } = body as {
+  const { title, description, price, isFree, category, images } = body as {
     title?: string;
     description?: string;
     price?: number;
+    isFree?: boolean;
     category?: string;
     images?: string[];
   };
 
-  if (!title || !description || price == null || !category) {
+  if (!title || !description || !category) {
     return NextResponse.json({ error: "Заповніть усі обов'язкові поля" }, { status: 400 });
+  }
+
+  const free = Boolean(isFree);
+  if (!free && (price == null || price <= 0)) {
+    return NextResponse.json({ error: "Вкажіть коректну ціну або оберіть «безкоштовно»" }, { status: 400 });
   }
 
   const resolvedImages =
@@ -111,13 +115,16 @@ export async function POST(req: NextRequest) {
     data: {
       title: title.trim(),
       description: description.trim(),
-      price,
+      price: free ? 0 : price!,
+      isFree: free,
       category,
       images: resolvedImages,
       userId: BigInt(userId),
     },
     include: { user: true },
   });
+
+  notifySubscribersAboutProduct(product).catch(console.error);
 
   return NextResponse.json(serializeProduct(product), { status: 201 });
 }

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Product } from "@/types";
-import { formatPrice, formatDate } from "@/lib/utils";
+import { formatProductPrice, formatDate } from "@/lib/utils";
 import { CATEGORY_MAP, PRODUCT_STATUS_LABELS, PRODUCT_STATUS_COLORS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
@@ -50,8 +50,15 @@ export function ProductCard({ product }: ProductCardProps) {
             {product.title}
           </h3>
           <div className="flex items-center justify-between mt-2">
-            <span className="text-base font-bold text-[var(--tg-theme-accent-text-color,#2481cc)]">
-              {formatPrice(product.price, product.currency)}
+            <span
+              className={cn(
+                "text-base font-bold",
+                product.isFree
+                  ? "text-green-600"
+                  : "text-[var(--tg-theme-accent-text-color,#2481cc)]"
+              )}
+            >
+              {formatProductPrice(product)}
             </span>
             <span className="text-xs text-[var(--tg-theme-hint-color,#888)]">
               {formatDate(product.createdAt)}

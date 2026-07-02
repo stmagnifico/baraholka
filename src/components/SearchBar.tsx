@@ -24,7 +24,7 @@ export function SearchBar({ value, onChange, placeholder = "Пошук огол�
     >
       <Search className="w-4 h-4 text-[var(--tg-theme-hint-color,#888)] flex-shrink-0" />
       <input
-        type="search"
+        type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onFocus={() => setFocused(true)}
@@ -33,7 +33,7 @@ export function SearchBar({ value, onChange, placeholder = "Пошук огол�
         className="flex-1 bg-transparent text-sm text-[var(--tg-theme-text-color,#111)] placeholder-[var(--tg-theme-hint-color,#888)] outline-none"
       />
       {value && (
-        <button onClick={handleClear} className="flex-shrink-0">
+        <button type="button" onClick={handleClear} className="flex-shrink-0 p-0.5">
           <X className="w-4 h-4 text-[var(--tg-theme-hint-color,#888)]" />
         </button>
       )}

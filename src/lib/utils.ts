@@ -15,6 +15,15 @@ export function formatPrice(price: number | string, currency = "UAH"): string {
   }).format(value);
 }
 
+export function formatProductPrice(product: {
+  price: number | string;
+  currency?: string;
+  isFree?: boolean;
+}): string {
+  if (product.isFree) return "Безкоштовно";
+  return formatPrice(product.price, product.currency);
+}
+
 export function formatDate(dateStr: string): string {
   return new Intl.DateTimeFormat("uk-UA", {
     day: "numeric",

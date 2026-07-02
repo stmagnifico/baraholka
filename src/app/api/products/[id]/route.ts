@@ -8,6 +8,7 @@ function serializeProduct(p: {
   title: string;
   description: string;
   price: { toString: () => string };
+  isFree: boolean;
   currency: string;
   category: string;
   images: string[];
@@ -29,13 +30,10 @@ function serializeProduct(p: {
     userId: p.userId.toString(),
     createdAt: p.createdAt.toISOString(),
     updatedAt: p.updatedAt.toISOString(),
-    user: p.user
-      ? { ...p.user, id: p.user.id.toString() }
-      : undefined,
+    user: p.user ? { ...p.user, id: p.user.id.toString() } : undefined,
   };
 }
 
-// GET /api/products/:id
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -54,7 +52,6 @@ export async function GET(
   return NextResponse.json(serializeProduct(product));
 }
 
-// PATCH /api/products/:id — change status
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -83,22 +80,56 @@ export async function PATCH(
   }
 
   const body = await req.json();
-  const { status } = body as { status?: ProductStatus };
+  const { status, title, description, price, isFree, category, images } = body as {
+    status?: ProductStatus;
+    title?: string;
+    description?: string;
+    price?: number;
+    isFree?: boolean;
+    category?: string;
+    images?: string[];
+  };
 
-  if (!status || !["ACTIVE", "SOLD", "ARCHIVED"].includes(status)) {
-    return NextResponse.json({ error: "Невалідний статус" }, { status: 400 });
+  const data: Record<string, unknown> = {};
+
+  if (status) {
+    if (!["ACTIVE", "SOLD", "ARCHIVED"].includes(status)) {
+      return NextResponse.json({ error: "Невалідний статус" }, { status: 400 });
+    }
+    data.status = status;
+  }
+
+  if (title !== undefined) data.title = title.trim();
+  if (description !== undefined) data.description = description.trim();
+  if (category !== undefined) data.category = category;
+  if (images !== undefined) data.images = images;
+
+  if (isFree !== undefined) {
+    data.isFree = isFree;
+    if (isFree) data.price = 0;
+  }
+
+  if (price !== undefined && !isFree) {
+    if (price <= 0) {
+      return NextResponse.json({ error: "Вкажіть коректну ціну" }, { status: 400 });
+    }
+    data.price = price;
+    data.isFree = false;
+  }
+
+  if (Object.keys(data).length === 0) {
+    return NextResponse.json({ error: "Немає даних для оновлення" }, { status: 400 });
   }
 
   const updated = await prisma.product.update({
     where: { id },
-    data: { status },
+    data,
     include: { user: true },
   });
 
   return NextResponse.json(serializeProduct(updated));
 }
 
-// DELETE /api/products/:id
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
