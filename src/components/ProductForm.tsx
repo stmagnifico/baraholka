@@ -72,8 +72,9 @@ export function ProductForm({
   const blobUrlsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
+    const blobUrls = blobUrlsRef.current;
     return () => {
-      for (const url of blobUrlsRef.current) {
+      for (const url of blobUrls) {
         URL.revokeObjectURL(url);
       }
     };
