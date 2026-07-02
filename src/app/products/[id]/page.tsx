@@ -57,15 +57,28 @@ export default function ProductPage({ params }: PageProps) {
     );
   }
 
+  const isOwner = user?.id === Number(product.userId);
+  if (product.status === "DRAFT" && !isOwner) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen px-6 text-center">
+        <p className="text-lg font-semibold text-[var(--tg-theme-text-color,#111)] mb-2">
+          Оголошення не знайдено
+        </p>
+        <Button variant="secondary" onClick={() => router.back()}>
+          Назад
+        </Button>
+      </div>
+    );
+  }
+
   const images =
     product.images.length > 0
       ? product.images
       : ["https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&q=80"];
 
   const isSold = product.status === "SOLD";
-  const isOwner = user?.id === Number(product.userId);
   const contactUrl =
-    !isOwner && product.user?.username
+    !isOwner && product.status === "ACTIVE" && product.user?.username
       ? getTelegramContactUrl({ id: product.userId, username: product.user.username })
       : null;
 

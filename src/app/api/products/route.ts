@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { validateInitData } from "@/lib/telegram";
-import { PAGE_SIZE, MOCK_IMAGES, USERNAME_REQUIRED_ERROR } from "@/lib/constants";
+import { PAGE_SIZE, USERNAME_REQUIRED_ERROR } from "@/lib/constants";
 import { notifySubscribersAboutProduct } from "@/lib/bot/notifications";
+import { ProductStatus } from "@prisma/client";
 
 function serializeProduct(p: {
   id: string;
@@ -94,13 +95,14 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { title, description, price, isFree, category, images } = body as {
+  const { title, description, price, isFree, category, images, status } = body as {
     title?: string;
     description?: string;
     price?: number;
     isFree?: boolean;
     category?: string;
     images?: string[];
+    status?: ProductStatus;
   };
 
   if (!title || !description || !category) {
@@ -112,10 +114,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Вкажіть коректну ціну або оберіть «безкоштовно»" }, { status: 400 });
   }
 
-  const resolvedImages =
-    images && images.length > 0
-      ? images
-      : [MOCK_IMAGES[Math.floor(Math.random() * MOCK_IMAGES.length)]];
+  const productStatus: ProductStatus =
+    status === "DRAFT" ? "DRAFT" : "ACTIVE";
 
   const product = await prisma.product.create({
     data: {
@@ -124,13 +124,16 @@ export async function POST(req: NextRequest) {
       price: free ? 0 : price!,
       isFree: free,
       category,
-      images: resolvedImages,
+      images: images ?? [],
+      status: productStatus,
       userId: BigInt(userId),
     },
     include: { user: true },
   });
 
-  notifySubscribersAboutProduct(product).catch(console.error);
+  if (productStatus === "ACTIVE") {
+    notifySubscribersAboutProduct(product).catch(console.error);
+  }
 
   return NextResponse.json(serializeProduct(product), { status: 201 });
 }

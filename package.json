@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@prisma/client": "^6.11.0",
+    "@supabase/supabase-js": "^2.110.0",
     "@tma.js/init-data-node": "^2.0.8",
     "@tma.js/sdk": "^3.2.3",
     "class-variance-authority": "^0.7.1",

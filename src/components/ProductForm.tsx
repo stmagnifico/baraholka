@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useRef, FormEvent } from "react";
+import { useState, useRef, FormEvent, useEffect } from "react";
 import Image from "next/image";
-import { ArrowLeft, Camera, X, CheckCircle } from "lucide-react";
-import { CATEGORIES, MOCK_IMAGES } from "@/lib/constants";
+import { ArrowLeft, Camera, ImagePlus, Loader2, X, CheckCircle } from "lucide-react";
+import { CATEGORIES } from "@/lib/constants";
+import { compressImage } from "@/lib/image-compress";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 
@@ -16,11 +17,19 @@ export interface ProductFormData {
   images: string[];
 }
 
+interface ImageItem {
+  id: string;
+  preview: string;
+  url?: string;
+  uploading?: boolean;
+}
+
 interface ProductFormProps {
   mode: "create" | "edit";
   initialData?: Partial<ProductFormData>;
   loading?: boolean;
-  onSubmit: (data: ProductFormData) => Promise<void>;
+  initData?: string;
+  onSubmit: (data: ProductFormData, publish: boolean) => Promise<void>;
   onCancel: () => void;
 }
 
@@ -33,10 +42,17 @@ const EMPTY: ProductFormData = {
   images: [],
 };
 
+const MAX_IMAGES = 5;
+
+function toImageItems(urls: string[]): ImageItem[] {
+  return urls.map((url) => ({ id: url, preview: url, url }));
+}
+
 export function ProductForm({
   mode,
   initialData,
   loading = false,
+  initData = "",
   onSubmit,
   onCancel,
 }: ProductFormProps) {
@@ -45,9 +61,23 @@ export function ProductForm({
     ...initialData,
     images: initialData?.images ?? [],
   });
+  const [imageItems, setImageItems] = useState<ImageItem[]>(() =>
+    toImageItems(initialData?.images ?? [])
+  );
   const [errors, setErrors] = useState<Partial<Record<keyof ProductFormData, string>>>({});
-  const [success, setSuccess] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [success, setSuccess] = useState<"published" | "draft" | null>(null);
+  const [imageError, setImageError] = useState("");
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const blobUrlsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    return () => {
+      for (const url of blobUrlsRef.current) {
+        URL.revokeObjectURL(url);
+      }
+    };
+  }, []);
 
   const set =
     (field: keyof ProductFormData) =>
@@ -68,24 +98,90 @@ export function ProductForm({
     return Object.keys(next).length === 0;
   };
 
-  const handleAddMockPhoto = () => {
-    if (form.images.length >= 5) return;
-    const available = MOCK_IMAGES.filter((img) => !form.images.includes(img));
-    if (available.length === 0) return;
-    const pick = available[Math.floor(Math.random() * available.length)];
-    setForm((prev) => ({ ...prev, images: [...prev.images, pick] }));
+  const uploadFile = async (file: File): Promise<string> => {
+    const body = new FormData();
+    body.append("file", file);
+    const res = await fetch("/api/upload", {
+      method: "POST",
+      headers: { "x-init-data": initData },
+      body,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error((err as { error?: string }).error ?? "Не вдалося завантажити фото");
+    }
+    const data = (await res.json()) as { url: string };
+    return data.url;
   };
 
-  const handleRemoveImage = (url: string) => {
-    setForm((prev) => ({ ...prev, images: prev.images.filter((i) => i !== url) }));
+  const handleFiles = async (files: FileList | null) => {
+    if (!files?.length) return;
+    setImageError("");
+
+    const slotsLeft = MAX_IMAGES - imageItems.length;
+    if (slotsLeft <= 0) return;
+
+    const selected = Array.from(files).slice(0, slotsLeft);
+
+    for (const raw of selected) {
+      const id = crypto.randomUUID();
+      let preview = "";
+      try {
+        const compressed = await compressImage(raw);
+        preview = URL.createObjectURL(compressed);
+        blobUrlsRef.current.add(preview);
+
+        setImageItems((prev) => [...prev, { id, preview, uploading: true }]);
+
+        const url = await uploadFile(compressed);
+        setImageItems((prev) =>
+          prev.map((item) => (item.id === id ? { ...item, url, uploading: false } : item))
+        );
+      } catch (err) {
+        if (preview) {
+          URL.revokeObjectURL(preview);
+          blobUrlsRef.current.delete(preview);
+        }
+        setImageItems((prev) => prev.filter((item) => item.id !== id));
+        setImageError(err instanceof Error ? err.message : "Помилка завантаження");
+      }
+    }
   };
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
+  const handleRemoveImage = (item: ImageItem) => {
+    if (item.preview.startsWith("blob:")) {
+      URL.revokeObjectURL(item.preview);
+      blobUrlsRef.current.delete(item.preview);
+    }
+    setImageItems((prev) => prev.filter((i) => i.id !== item.id));
+  };
+
+  const getReadyImages = (): string[] | null => {
+    if (imageItems.some((i) => i.uploading)) {
+      setImageError("Зачекайте, фото ще завантажуються");
+      return null;
+    }
+    if (imageItems.some((i) => !i.url)) {
+      setImageError("Деякі фото не завантажились — спробуйте ще раз");
+      return null;
+    }
+    return imageItems.map((i) => i.url!);
+  };
+
+  const handleSubmit = async (publish: boolean) => {
     if (!validate()) return;
 
-    await onSubmit(form);
-    if (mode === "create") setSuccess(true);
+    const images = getReadyImages();
+    if (!images) return;
+
+    const data: ProductFormData = { ...form, images };
+    await onSubmit(data, publish);
+    if (mode === "create") setSuccess(publish ? "published" : "draft");
+  };
+
+  const handleFormSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    void handleSubmit(true);
   };
 
   if (success) {
@@ -95,10 +191,12 @@ export function ProductForm({
           <CheckCircle className="w-10 h-10 text-green-500" />
         </div>
         <h2 className="text-xl font-bold text-[var(--tg-theme-text-color,#111)] mb-1">
-          Оголошення опубліковано!
+          {success === "published" ? "Оголошення опубліковано!" : "Чернетку збережено"}
         </h2>
         <p className="text-sm text-[var(--tg-theme-hint-color,#888)]">
-          Переходимо на сторінку оголошення…
+          {success === "published"
+            ? "Переходимо на сторінку оголошення…"
+            : "Переходимо до профілю…"}
         </p>
       </div>
     );
@@ -119,39 +217,81 @@ export function ProductForm({
         </h1>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form onSubmit={handleFormSubmit} className="space-y-5">
         <div>
           <label className="block text-sm font-semibold text-[var(--tg-theme-text-color,#111)] mb-2">
             Фото
           </label>
           <div className="flex gap-2 flex-wrap">
-            {form.images.map((url) => (
-              <div key={url} className="relative w-20 h-20 rounded-xl overflow-hidden">
-                <Image src={url} alt="фото" fill className="object-cover" />
+            {imageItems.map((item) => (
+              <div key={item.id} className="relative w-20 h-20 rounded-xl overflow-hidden bg-gray-100">
+                {item.preview.startsWith("blob:") ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={item.preview} alt="фото" className="w-full h-full object-cover" />
+                ) : (
+                  <Image src={item.preview} alt="фото" fill className="object-cover" />
+                )}
+                {item.uploading && (
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                    <Loader2 className="w-5 h-5 text-white animate-spin" />
+                  </div>
+                )}
                 <button
                   type="button"
-                  onClick={() => handleRemoveImage(url)}
+                  onClick={() => handleRemoveImage(item)}
                   className="absolute top-0.5 right-0.5 w-5 h-5 bg-black/60 rounded-full flex items-center justify-center"
                 >
                   <X className="w-3 h-3 text-white" />
                 </button>
               </div>
             ))}
-            {form.images.length < 5 && (
-              <button
-                type="button"
-                onClick={handleAddMockPhoto}
-                className="w-20 h-20 rounded-xl border-2 border-dashed border-[var(--tg-theme-hint-color,#aaa)] flex flex-col items-center justify-center text-[var(--tg-theme-hint-color,#888)] gap-1 transition-colors hover:border-[var(--tg-theme-button-color,#2481cc)]"
-              >
-                <Camera className="w-6 h-6" />
-                <span className="text-[10px]">Додати</span>
-              </button>
+            {imageItems.length < MAX_IMAGES && (
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => galleryInputRef.current?.click()}
+                  className="w-20 h-20 rounded-xl border-2 border-dashed border-[var(--tg-theme-hint-color,#aaa)] flex flex-col items-center justify-center text-[var(--tg-theme-hint-color,#888)] gap-1 transition-colors hover:border-[var(--tg-theme-button-color,#2481cc)]"
+                >
+                  <ImagePlus className="w-5 h-5" />
+                  <span className="text-[10px]">Галерея</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => cameraInputRef.current?.click()}
+                  className="w-20 h-20 rounded-xl border-2 border-dashed border-[var(--tg-theme-hint-color,#aaa)] flex flex-col items-center justify-center text-[var(--tg-theme-hint-color,#888)] gap-1 transition-colors hover:border-[var(--tg-theme-button-color,#2481cc)]"
+                >
+                  <Camera className="w-5 h-5" />
+                  <span className="text-[10px]">Камера</span>
+                </button>
+              </div>
             )}
           </div>
-          <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" />
+          <input
+            ref={galleryInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              void handleFiles(e.target.files);
+              e.target.value = "";
+            }}
+          />
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={(e) => {
+              void handleFiles(e.target.files);
+              e.target.value = "";
+            }}
+          />
           <p className="text-xs text-[var(--tg-theme-hint-color,#888)] mt-1.5">
-            Тестовий режим: зображення беруться з Unsplash
+            До {MAX_IMAGES} фото. Можна обрати з галереї або зробити знімок.
           </p>
+          {imageError && <p className="text-xs text-red-500 mt-1">{imageError}</p>}
         </div>
 
         <Field
@@ -247,9 +387,26 @@ export function ProductForm({
           }
         />
 
-        <Button type="submit" size="lg" loading={loading} className="mt-2">
-          {mode === "create" ? "Опублікувати оголошення" : "Зберегти зміни"}
-        </Button>
+        {mode === "create" ? (
+          <div className="flex flex-col gap-2 mt-2">
+            <Button type="submit" size="lg" loading={loading}>
+              Опублікувати оголошення
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              size="lg"
+              loading={loading}
+              onClick={() => void handleSubmit(false)}
+            >
+              Зберегти чернетку
+            </Button>
+          </div>
+        ) : (
+          <Button type="submit" size="lg" loading={loading} className="mt-2">
+            Зберегти зміни
+          </Button>
+        )}
       </form>
     </div>
   );

@@ -90,6 +90,7 @@ export default function ProfilePage() {
   const activeCount = products.filter((p) => p.status === "ACTIVE").length;
   const soldCount = products.filter((p) => p.status === "SOLD").length;
   const hiddenCount = products.filter((p) => p.status === "ARCHIVED").length;
+  const draftCount = products.filter((p) => p.status === "DRAFT").length;
 
   return (
     <div className="px-4 pt-4">
@@ -119,6 +120,7 @@ export default function ProfilePage() {
           )}
           <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1.5 text-xs text-[var(--tg-theme-hint-color,#888)]">
             <span><b className="text-[var(--tg-theme-text-color,#111)]">{activeCount}</b> активних</span>
+            <span><b className="text-[var(--tg-theme-text-color,#111)]">{draftCount}</b> чернеток</span>
             <span><b className="text-[var(--tg-theme-text-color,#111)]">{soldCount}</b> продано</span>
             <span><b className="text-[var(--tg-theme-text-color,#111)]">{hiddenCount}</b> приховано</span>
           </div>
@@ -186,6 +188,16 @@ function ProfileProductCard({
     onClick: () => void;
     className: string;
   }> = [];
+
+  if (product.status === "DRAFT") {
+    actions.push({
+      key: "publish",
+      label: "Опублікувати",
+      icon: <Eye className="w-4 h-4" />,
+      onClick: () => onStatusChange(product.id, "ACTIVE"),
+      className: "text-blue-600 hover:bg-blue-50",
+    });
+  }
 
   if (product.status === "ACTIVE") {
     actions.push({

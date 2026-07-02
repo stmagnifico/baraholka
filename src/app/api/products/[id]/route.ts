@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { validateInitData } from "@/lib/telegram";
 import { ProductStatus } from "@prisma/client";
+import { notifySubscribersAboutProduct } from "@/lib/bot/notifications";
 
 function serializeProduct(p: {
   id: string;
@@ -93,7 +94,7 @@ export async function PATCH(
   const data: Record<string, unknown> = {};
 
   if (status) {
-    if (!["ACTIVE", "SOLD", "ARCHIVED"].includes(status)) {
+    if (!["DRAFT", "ACTIVE", "SOLD", "ARCHIVED"].includes(status)) {
       return NextResponse.json({ error: "Невалідний статус" }, { status: 400 });
     }
     data.status = status;
@@ -126,6 +127,10 @@ export async function PATCH(
     data,
     include: { user: true },
   });
+
+  if (status === "ACTIVE" && product.status !== "ACTIVE") {
+    notifySubscribersAboutProduct(updated).catch(console.error);
+  }
 
   return NextResponse.json(serializeProduct(updated));
 }

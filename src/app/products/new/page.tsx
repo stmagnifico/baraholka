@@ -11,14 +11,17 @@ export default function NewProductPage() {
   const { user, initData, isTelegramEnv, isReady } = useTelegramContext();
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (data: {
-    title: string;
-    description: string;
-    price: string;
-    isFree: boolean;
-    category: string;
-    images: string[];
-  }) => {
+  const handleSubmit = async (
+    data: {
+      title: string;
+      description: string;
+      price: string;
+      isFree: boolean;
+      category: string;
+      images: string[];
+    },
+    publish: boolean
+  ) => {
     if (!isTelegramEnv && !initData) {
       alert("Відкрийте застосунок через Telegram для публікації оголошень.");
       return;
@@ -39,6 +42,7 @@ export default function NewProductPage() {
           isFree: data.isFree,
           category: data.category,
           images: data.images,
+          status: publish ? "ACTIVE" : "DRAFT",
         }),
       });
 
@@ -48,7 +52,9 @@ export default function NewProductPage() {
       }
 
       const created = await res.json();
-      setTimeout(() => router.push(`/products/${created.id}`), 1500);
+      setTimeout(() => {
+        router.push(publish ? `/products/${created.id}` : "/profile");
+      }, 1500);
     } catch (err) {
       alert(err instanceof Error ? err.message : "Невідома помилка");
       throw err;
@@ -80,6 +86,7 @@ export default function NewProductPage() {
     <ProductForm
       mode="create"
       loading={loading}
+      initData={initData}
       onSubmit={handleSubmit}
       onCancel={() => router.back()}
     />

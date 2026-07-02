@@ -59,6 +59,7 @@ model Subscription {
 }
 
 enum ProductStatus {
+  DRAFT
   ACTIVE
   SOLD
   ARCHIVED

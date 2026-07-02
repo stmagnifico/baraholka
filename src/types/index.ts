@@ -1,4 +1,4 @@
-export type ProductStatus = "ACTIVE" | "SOLD" | "ARCHIVED";
+export type ProductStatus = "DRAFT" | "ACTIVE" | "SOLD" | "ARCHIVED";
 
 export interface TelegramUser {
   id: number;

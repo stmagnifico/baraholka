@@ -29,14 +29,17 @@ export default function EditProductPage({ params }: PageProps) {
       .finally(() => setFetching(false));
   }, [id, router]);
 
-  const handleSubmit = async (data: {
-    title: string;
-    description: string;
-    price: string;
-    isFree: boolean;
-    category: string;
-    images: string[];
-  }) => {
+  const handleSubmit = async (
+    data: {
+      title: string;
+      description: string;
+      price: string;
+      isFree: boolean;
+      category: string;
+      images: string[];
+    },
+    _publish: boolean
+  ) => {
     setLoading(true);
     try {
       const res = await fetch(`/api/products/${id}`, {
@@ -86,6 +89,7 @@ export default function EditProductPage({ params }: PageProps) {
     <ProductForm
       mode="edit"
       loading={loading}
+      initData={initData}
       initialData={{
         title: product.title,
         description: product.description,

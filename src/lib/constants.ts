@@ -13,12 +13,14 @@ export const CATEGORY_MAP = Object.fromEntries(
 ) as Record<string, string>;
 
 export const PRODUCT_STATUS_LABELS: Record<string, string> = {
+  DRAFT: "Чернетка",
   ACTIVE: "Активне",
   SOLD: "Продано",
   ARCHIVED: "Приховано",
 };
 
 export const PRODUCT_STATUS_COLORS: Record<string, string> = {
+  DRAFT: "bg-orange-100 text-orange-700",
   ACTIVE: "bg-green-100 text-green-700",
   SOLD: "bg-gray-100 text-gray-500",
   ARCHIVED: "bg-yellow-100 text-yellow-700",
