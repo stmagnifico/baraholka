@@ -52,9 +52,15 @@ export default function NewProductPage() {
       }
 
       const created = await res.json();
-      setTimeout(() => {
-        router.push(publish ? `/products/${created.id}` : "/profile");
-      }, 1500);
+
+      if (publish) {
+        return {
+          id: created.id as string,
+          title: created.title as string,
+          isFree: created.isFree as boolean,
+          price: created.price as string,
+        };
+      }
     } catch (err) {
       alert(err instanceof Error ? err.message : "Невідома помилка");
       throw err;

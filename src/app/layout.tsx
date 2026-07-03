@@ -3,6 +3,7 @@ import Script from "next/script";
 import "./globals.css";
 import { TelegramProvider } from "@/context/TelegramContext";
 import { BottomNav } from "@/components/BottomNav";
+import { StartParamRouter } from "@/components/StartParamRouter";
 import { APP_NAME } from "@/lib/constants";
 
 export const metadata: Metadata = {
@@ -22,6 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <TelegramProvider>
+          <StartParamRouter />
           <main className="min-h-screen pb-24 max-w-lg mx-auto">
             {children}
           </main>

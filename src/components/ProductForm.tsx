@@ -2,11 +2,14 @@
 
 import { useState, useRef, FormEvent, useEffect } from "react";
 import Image from "next/image";
-import { ArrowLeft, Camera, ImagePlus, Loader2, X, CheckCircle } from "lucide-react";
+import { ArrowLeft, Camera, ImagePlus, Loader2, X, CheckCircle, Share2, ExternalLink } from "lucide-react";
 import { CATEGORIES } from "@/lib/constants";
 import { compressImage } from "@/lib/image-compress";
+import { shareProductInTelegram } from "@/lib/share";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
+import { useTelegramContext } from "@/context/TelegramContext";
+import { useRouter } from "next/navigation";
 
 export interface ProductFormData {
   title: string;
@@ -24,12 +27,19 @@ interface ImageItem {
   uploading?: boolean;
 }
 
+export interface CreatedProductResult {
+  id: string;
+  title: string;
+  isFree: boolean;
+  price: string;
+}
+
 interface ProductFormProps {
   mode: "create" | "edit";
   initialData?: Partial<ProductFormData>;
   loading?: boolean;
   initData?: string;
-  onSubmit: (data: ProductFormData, publish: boolean) => Promise<void>;
+  onSubmit: (data: ProductFormData, publish: boolean) => Promise<CreatedProductResult | void>;
   onCancel: () => void;
 }
 
@@ -66,7 +76,10 @@ export function ProductForm({
   );
   const [errors, setErrors] = useState<Partial<Record<keyof ProductFormData, string>>>({});
   const [success, setSuccess] = useState<"published" | "draft" | null>(null);
+  const [createdProduct, setCreatedProduct] = useState<CreatedProductResult | null>(null);
   const [imageError, setImageError] = useState("");
+  const { webApp } = useTelegramContext();
+  const router = useRouter();
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const blobUrlsRef = useRef<Set<string>>(new Set());
@@ -176,8 +189,11 @@ export function ProductForm({
     if (!images) return;
 
     const data: ProductFormData = { ...form, images };
-    await onSubmit(data, publish);
-    if (mode === "create") setSuccess(publish ? "published" : "draft");
+    const result = await onSubmit(data, publish);
+    if (mode === "create") {
+      setSuccess(publish ? "published" : "draft");
+      if (result && publish) setCreatedProduct(result);
+    }
   };
 
   const handleFormSubmit = (e: FormEvent) => {
@@ -194,11 +210,39 @@ export function ProductForm({
         <h2 className="text-xl font-bold text-[var(--tg-theme-text-color,#111)] mb-1">
           {success === "published" ? "Оголошення опубліковано!" : "Чернетку збережено"}
         </h2>
-        <p className="text-sm text-[var(--tg-theme-hint-color,#888)]">
+        <p className="text-sm text-[var(--tg-theme-hint-color,#888)] mb-6">
           {success === "published"
-            ? "Переходимо на сторінку оголошення…"
-            : "Переходимо до профілю…"}
+            ? "Поділіться оголошенням у чаті ЖК або з друзями"
+            : "Чернетку можна опублікувати з профілю"}
         </p>
+
+        {success === "published" && createdProduct && (
+          <div className="w-full max-w-xs space-y-2">
+            <Button
+              size="lg"
+              className="gap-2"
+              onClick={() => shareProductInTelegram(webApp, createdProduct)}
+            >
+              <Share2 className="w-5 h-5" />
+              Поділитися
+            </Button>
+            <Button
+              variant="secondary"
+              size="lg"
+              className="gap-2"
+              onClick={() => router.push(`/products/${createdProduct.id}`)}
+            >
+              <ExternalLink className="w-5 h-5" />
+              Переглянути оголошення
+            </Button>
+          </div>
+        )}
+
+        {success === "draft" && (
+          <Button size="lg" onClick={() => router.push("/profile")}>
+            До профілю
+          </Button>
+        )}
       </div>
     );
   }
