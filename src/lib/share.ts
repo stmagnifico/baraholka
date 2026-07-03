@@ -37,7 +37,8 @@ export function shareProductInTelegram(
   webApp: { openTelegramLink?: (url: string) => void } | null,
   product: { id: string; title: string; isFree: boolean; price: string }
 ) {
-  const url = getProductMiniAppUrl(product.id);
+  // Веб-URL, щоб Telegram підтягнув прев'ю з фото товару (Open Graph).
+  const url = getProductWebUrl(product.id);
   const text = getProductShareText(product);
   const shareUrl = getTelegramShareUrl(url, text);
 
