@@ -40,3 +40,11 @@ export const PAGE_SIZE = 20;
 
 export const USERNAME_REQUIRED_ERROR =
   "Щоб продавати на барахолці, задайте username в Telegram: Налаштування → Редагувати профіль → Ім'я користувача.";
+
+export const ADMIN_EDITED_NOTICE = "Оголошення відредаговано адміністратором";
+
+export const USER_ROLE_LABELS: Record<string, string> = {
+  USER: "Користувач",
+  ADMIN: "Адмін",
+  SUPERADMIN: "Суперадмін",
+};

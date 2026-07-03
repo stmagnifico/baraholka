@@ -2,9 +2,11 @@
 
 import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ShieldAlert } from "lucide-react";
 import { ProductForm } from "@/components/ProductForm";
 import { useTelegramContext } from "@/context/TelegramContext";
 import { Product } from "@/types";
+import { getDisplayName } from "@/lib/utils";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -13,7 +15,7 @@ interface PageProps {
 export default function EditProductPage({ params }: PageProps) {
   const { id } = use(params);
   const router = useRouter();
-  const { initData } = useTelegramContext();
+  const { user, initData, isModerator } = useTelegramContext();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
@@ -85,21 +87,41 @@ export default function EditProductPage({ params }: PageProps) {
     );
   }
 
+  const isOwner = user?.id === Number(product.userId);
+  const canModerate = isModerator && !isOwner;
+
+  if (!isOwner && !isModerator) {
+    router.replace("/profile");
+    return null;
+  }
+
   return (
-    <ProductForm
-      mode="edit"
-      loading={loading}
-      initData={initData}
-      initialData={{
-        title: product.title,
-        description: product.description,
-        price: product.isFree ? "" : product.price,
-        isFree: product.isFree,
-        category: product.category,
-        images: product.images,
-      }}
-      onSubmit={handleSubmit}
-      onCancel={() => router.back()}
-    />
+    <div>
+      {canModerate && product.user && (
+        <div className="mx-4 mt-4 flex items-start gap-2 p-3 rounded-xl bg-blue-50 border border-blue-100">
+          <ShieldAlert className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
+          <p className="text-xs text-blue-800">
+            Редагування оголошення користувача{" "}
+            <b>{getDisplayName(product.user)}</b>. Після збереження з&apos;явиться сноска про
+            редагування адміністратором.
+          </p>
+        </div>
+      )}
+      <ProductForm
+        mode="edit"
+        loading={loading}
+        initData={initData}
+        initialData={{
+          title: product.title,
+          description: product.description,
+          price: product.isFree ? "" : product.price,
+          isFree: product.isFree,
+          category: product.category,
+          images: product.images,
+        }}
+        onSubmit={handleSubmit}
+        onCancel={() => router.back()}
+      />
+    </div>
   );
 }

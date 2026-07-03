@@ -4,37 +4,7 @@ import { validateInitData } from "@/lib/telegram";
 import { PAGE_SIZE, USERNAME_REQUIRED_ERROR } from "@/lib/constants";
 import { notifySubscribersAboutProduct } from "@/lib/bot/notifications";
 import { ProductStatus } from "@prisma/client";
-
-function serializeProduct(p: {
-  id: string;
-  title: string;
-  description: string;
-  price: { toString: () => string };
-  isFree: boolean;
-  currency: string;
-  category: string;
-  images: string[];
-  status: string;
-  userId: bigint;
-  createdAt: Date;
-  updatedAt: Date;
-  user?: {
-    id: bigint;
-    username: string | null;
-    firstName: string | null;
-    lastName: string | null;
-    photoUrl: string | null;
-  } | null;
-}) {
-  return {
-    ...p,
-    price: p.price.toString(),
-    userId: p.userId.toString(),
-    createdAt: p.createdAt.toISOString(),
-    updatedAt: p.updatedAt.toISOString(),
-    user: p.user ? { ...p.user, id: p.user.id.toString() } : undefined,
-  };
-}
+import { serializeProduct } from "@/lib/serialize-product";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;

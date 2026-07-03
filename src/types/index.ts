@@ -1,5 +1,7 @@
 export type ProductStatus = "DRAFT" | "ACTIVE" | "SOLD" | "ARCHIVED";
 
+export type UserRole = "USER" | "ADMIN" | "SUPERADMIN";
+
 export interface TelegramUser {
   id: number;
   username?: string;
@@ -14,6 +16,7 @@ export interface User {
   firstName?: string | null;
   lastName?: string | null;
   photoUrl?: string | null;
+  role?: UserRole;
   createdAt: string;
   updatedAt: string;
 }
@@ -29,6 +32,9 @@ export interface Product {
   images: string[];
   status: ProductStatus;
   userId: string;
+  adminEditedAt?: string | null;
+  adminEditedById?: string | null;
+  adminEditedBy?: Pick<User, "id" | "username" | "firstName" | "lastName" | "photoUrl"> | null;
   user?: Pick<User, "id" | "username" | "firstName" | "lastName" | "photoUrl">;
   createdAt: string;
   updatedAt: string;

@@ -1,39 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { validateInitData } from "@/lib/telegram";
 import { ProductStatus } from "@prisma/client";
 import { notifySubscribersAboutProduct } from "@/lib/bot/notifications";
+import { notifyProductRemovedByAdmin } from "@/lib/bot/admin-notifications";
+import { requireAuth, authErrorResponse } from "@/lib/auth";
+import { serializeProduct } from "@/lib/serialize-product";
 
-function serializeProduct(p: {
-  id: string;
-  title: string;
-  description: string;
-  price: { toString: () => string };
-  isFree: boolean;
-  currency: string;
-  category: string;
-  images: string[];
-  status: string;
-  userId: bigint;
-  createdAt: Date;
-  updatedAt: Date;
-  user?: {
-    id: bigint;
-    username: string | null;
-    firstName: string | null;
-    lastName: string | null;
-    photoUrl: string | null;
-  } | null;
-}) {
-  return {
-    ...p,
-    price: p.price.toString(),
-    userId: p.userId.toString(),
-    createdAt: p.createdAt.toISOString(),
-    updatedAt: p.updatedAt.toISOString(),
-    user: p.user ? { ...p.user, id: p.user.id.toString() } : undefined,
-  };
-}
+const PRODUCT_INCLUDE = {
+  user: true,
+  adminEditedBy: {
+    select: {
+      id: true,
+      username: true,
+      firstName: true,
+      lastName: true,
+      photoUrl: true,
+    },
+  },
+} as const;
 
 export async function GET(
   _req: NextRequest,
@@ -43,7 +27,7 @@ export async function GET(
 
   const product = await prisma.product.findUnique({
     where: { id },
-    include: { user: true },
+    include: PRODUCT_INCLUDE,
   });
 
   if (!product) {
@@ -59,16 +43,12 @@ export async function PATCH(
 ) {
   const { id } = await params;
   const initData = req.headers.get("x-init-data") ?? "";
-  if (!initData) {
-    return NextResponse.json({ error: "Не авторизовано" }, { status: 401 });
-  }
 
-  let userId: number;
+  let auth;
   try {
-    const session = validateInitData(initData);
-    userId = session.user.id;
-  } catch {
-    return NextResponse.json({ error: "Невалідний initData" }, { status: 401 });
+    auth = await requireAuth(initData);
+  } catch (err) {
+    return authErrorResponse(err);
   }
 
   const product = await prisma.product.findUnique({ where: { id } });
@@ -76,7 +56,8 @@ export async function PATCH(
     return NextResponse.json({ error: "Оголошення не знайдено" }, { status: 404 });
   }
 
-  if (product.userId !== BigInt(userId)) {
+  const isOwner = product.userId === auth.userId;
+  if (!isOwner && !auth.isModerator) {
     return NextResponse.json({ error: "Немає прав" }, { status: 403 });
   }
 
@@ -122,10 +103,21 @@ export async function PATCH(
     return NextResponse.json({ error: "Немає даних для оновлення" }, { status: 400 });
   }
 
+  const contentFields = ["title", "description", "category", "images", "price", "isFree"] as const;
+  const hasContentChange = contentFields.some((field) => data[field] !== undefined);
+
+  if (auth.isModerator && !isOwner && hasContentChange) {
+    data.adminEditedAt = new Date();
+    data.adminEditedById = auth.userId;
+  } else if (auth.isModerator && isOwner && hasContentChange) {
+    data.adminEditedAt = null;
+    data.adminEditedById = null;
+  }
+
   const updated = await prisma.product.update({
     where: { id },
     data,
-    include: { user: true },
+    include: PRODUCT_INCLUDE,
   });
 
   if (status === "ACTIVE" && product.status !== "ACTIVE") {
@@ -141,16 +133,12 @@ export async function DELETE(
 ) {
   const { id } = await params;
   const initData = req.headers.get("x-init-data") ?? "";
-  if (!initData) {
-    return NextResponse.json({ error: "Не авторизовано" }, { status: 401 });
-  }
 
-  let userId: number;
+  let auth;
   try {
-    const session = validateInitData(initData);
-    userId = session.user.id;
-  } catch {
-    return NextResponse.json({ error: "Невалідний initData" }, { status: 401 });
+    auth = await requireAuth(initData);
+  } catch (err) {
+    return authErrorResponse(err);
   }
 
   const product = await prisma.product.findUnique({ where: { id } });
@@ -158,10 +146,18 @@ export async function DELETE(
     return NextResponse.json({ error: "Оголошення не знайдено" }, { status: 404 });
   }
 
-  if (product.userId !== BigInt(userId)) {
+  const isOwner = product.userId === auth.userId;
+  if (!isOwner && !auth.isModerator) {
     return NextResponse.json({ error: "Немає прав" }, { status: 403 });
   }
 
+  const notifyOwner = auth.isModerator && !isOwner;
+
   await prisma.product.delete({ where: { id } });
+
+  if (notifyOwner) {
+    notifyProductRemovedByAdmin(product.userId, product.title).catch(console.error);
+  }
+
   return NextResponse.json({ success: true });
 }

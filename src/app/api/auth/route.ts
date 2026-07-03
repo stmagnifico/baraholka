@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { validateInitData } from "@/lib/telegram";
+import { resolveUserRole } from "@/lib/roles";
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,11 +16,12 @@ export async function POST(req: NextRequest) {
     }
 
     const { user } = validateInitData(initData);
+    const userId = BigInt(user.id);
 
     const saved = await prisma.user.upsert({
-      where: { id: BigInt(user.id) },
+      where: { id: userId },
       create: {
-        id: BigInt(user.id),
+        id: userId,
         username: user.username ?? null,
         firstName: user.firstName ?? null,
         lastName: user.lastName ?? null,
@@ -33,12 +35,15 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    const role = resolveUserRole(userId, saved.role);
+
     return NextResponse.json({
       id: saved.id.toString(),
       username: saved.username,
       firstName: saved.firstName,
       lastName: saved.lastName,
       photoUrl: saved.photoUrl,
+      role,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Помилка сервера";

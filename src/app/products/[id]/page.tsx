@@ -8,10 +8,17 @@ import {
   Tag,
   Calendar,
   Pencil,
+  Trash2,
+  ShieldAlert,
 } from "lucide-react";
 import { Product } from "@/types";
 import { formatProductPrice, formatDate, getDisplayName } from "@/lib/utils";
-import { CATEGORY_MAP, PRODUCT_STATUS_LABELS, PRODUCT_STATUS_COLORS } from "@/lib/constants";
+import {
+  CATEGORY_MAP,
+  PRODUCT_STATUS_LABELS,
+  PRODUCT_STATUS_COLORS,
+  ADMIN_EDITED_NOTICE,
+} from "@/lib/constants";
 import { getTelegramContactUrl } from "@/lib/telegram-client";
 import { useTelegramContext } from "@/context/TelegramContext";
 import { Button } from "@/components/ui/Button";
@@ -26,9 +33,10 @@ interface PageProps {
 export default function ProductPage({ params }: PageProps) {
   const { id } = use(params);
   const router = useRouter();
-  const { user, webApp } = useTelegramContext();
+  const { user, initData, webApp, isModerator } = useTelegramContext();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -41,6 +49,30 @@ export default function ProductPage({ params }: PageProps) {
       .catch(() => setError("Оголошення не знайдено"))
       .finally(() => setLoading(false));
   }, [id]);
+
+  const handleAdminDelete = async () => {
+    if (!product) return;
+    if (!confirm(`Видалити оголошення «${product.title}»? Користувачу прийде повідомлення в боті.`)) {
+      return;
+    }
+
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/products/${id}`, {
+        method: "DELETE",
+        headers: { "x-init-data": initData },
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error ?? "Помилка видалення");
+      }
+      router.push("/");
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Помилка видалення");
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   if (loading) return <ProductDetailSkeleton />;
 
@@ -58,7 +90,9 @@ export default function ProductPage({ params }: PageProps) {
   }
 
   const isOwner = user?.id === Number(product.userId);
-  if (product.status === "DRAFT" && !isOwner) {
+  const canModerate = isModerator && !isOwner;
+
+  if (product.status === "DRAFT" && !isOwner && !isModerator) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen px-6 text-center">
         <p className="text-lg font-semibold text-[var(--tg-theme-text-color,#111)] mb-2">
@@ -120,6 +154,18 @@ export default function ProductPage({ params }: PageProps) {
           </Badge>
         </div>
 
+        {product.adminEditedAt && (
+          <div className="flex items-start gap-2 p-3 mb-4 rounded-xl bg-orange-50 border border-orange-100">
+            <ShieldAlert className="w-4 h-4 text-orange-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-xs font-semibold text-orange-800">{ADMIN_EDITED_NOTICE}</p>
+              <p className="text-[10px] text-orange-600 mt-0.5">
+                {formatDate(product.adminEditedAt)}
+              </p>
+            </div>
+          </div>
+        )}
+
         <h1 className="text-xl font-bold text-[var(--tg-theme-text-color,#111)] mb-1">
           {product.title}
         </h1>
@@ -167,14 +213,26 @@ export default function ProductPage({ params }: PageProps) {
           </div>
         )}
 
-        {isOwner && (
+        {(isOwner || canModerate) && (
           <Button
             variant="secondary"
             className="gap-2 mb-3"
             onClick={() => router.push(`/products/${product.id}/edit`)}
           >
             <Pencil className="w-4 h-4" />
-            Редагувати оголошення
+            {canModerate ? "Редагувати (адмін)" : "Редагувати оголошення"}
+          </Button>
+        )}
+
+        {canModerate && (
+          <Button
+            variant="danger"
+            className="gap-2 mb-3"
+            loading={deleting}
+            onClick={handleAdminDelete}
+          >
+            <Trash2 className="w-4 h-4" />
+            Видалити оголошення
           </Button>
         )}
 
