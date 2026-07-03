@@ -5,15 +5,24 @@ import { PAGE_SIZE, USERNAME_REQUIRED_ERROR } from "@/lib/constants";
 import { notifySubscribersAboutProduct } from "@/lib/bot/notifications";
 import { ProductStatus } from "@prisma/client";
 import { serializeProduct } from "@/lib/serialize-product";
+import { optionalAuth, getViewerReportedProductIds } from "@/lib/product-access";
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
   const category = searchParams.get("category") ?? "";
   const search = searchParams.get("search") ?? "";
   const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10));
+  const initData = req.headers.get("x-init-data") ?? "";
+  const viewer = await optionalAuth(initData);
+
+  let reportedIds: string[] = [];
+  if (viewer) {
+    reportedIds = await getViewerReportedProductIds(viewer.userId);
+  }
 
   const where = {
     status: "ACTIVE" as const,
+    ...(reportedIds.length > 0 ? { id: { notIn: reportedIds } } : {}),
     ...(category ? { category } : {}),
     ...(search
       ? {
@@ -30,7 +39,7 @@ export async function GET(req: NextRequest) {
     prisma.product.findMany({
       where,
       include: { user: true },
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ bumpedAt: "desc" }, { createdAt: "desc" }],
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
     }),
@@ -87,6 +96,7 @@ export async function POST(req: NextRequest) {
   const productStatus: ProductStatus =
     status === "DRAFT" ? "DRAFT" : "ACTIVE";
 
+  const now = new Date();
   const product = await prisma.product.create({
     data: {
       title: title.trim(),
@@ -97,6 +107,7 @@ export async function POST(req: NextRequest) {
       images: images ?? [],
       status: productStatus,
       userId: BigInt(userId),
+      bumpedAt: now,
     },
     include: { user: true },
   });

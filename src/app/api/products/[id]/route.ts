@@ -1,10 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { ProductStatus } from "@prisma/client";
-import { notifySubscribersAboutProduct } from "@/lib/bot/notifications";
+import {
+  notifySubscribersAboutProduct,
+  notifySubscribersAboutProductInCategory,
+} from "@/lib/bot/notifications";
 import { notifyProductRemovedByAdmin } from "@/lib/bot/admin-notifications";
-import { requireAuth, authErrorResponse } from "@/lib/auth";
+import { requireAuth, optionalAuth, authErrorResponse } from "@/lib/auth";
+import {
+  checkProductVisibility,
+  getViewerReportedProductIds,
+} from "@/lib/product-access";
 import { serializeProduct } from "@/lib/serialize-product";
+import { PRODUCT_UNAVAILABLE_MESSAGES } from "@/lib/constants";
 
 const PRODUCT_INCLUDE = {
   user: true,
@@ -19,22 +27,40 @@ const PRODUCT_INCLUDE = {
   },
 } as const;
 
+function unavailableResponse(reason: keyof typeof PRODUCT_UNAVAILABLE_MESSAGES, status: number) {
+  return NextResponse.json(
+    { error: PRODUCT_UNAVAILABLE_MESSAGES[reason], reason },
+    { status }
+  );
+}
+
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const initData = req.headers.get("x-init-data") ?? "";
+  const viewer = await optionalAuth(initData);
 
   const product = await prisma.product.findUnique({
     where: { id },
     include: PRODUCT_INCLUDE,
   });
 
-  if (!product) {
-    return NextResponse.json({ error: "Оголошення не знайдено" }, { status: 404 });
+  let isReported = false;
+  if (viewer) {
+    const report = await prisma.productReport.findUnique({
+      where: { productId_userId: { productId: id, userId: viewer.userId } },
+    });
+    isReported = !!report;
   }
 
-  return NextResponse.json(serializeProduct(product));
+  const access = checkProductVisibility(product, viewer, isReported);
+  if (!access.visible) {
+    return unavailableResponse(access.reason, access.status);
+  }
+
+  return NextResponse.json(serializeProduct(product!));
 }
 
 export async function PATCH(
@@ -53,7 +79,7 @@ export async function PATCH(
 
   const product = await prisma.product.findUnique({ where: { id } });
   if (!product) {
-    return NextResponse.json({ error: "Оголошення не знайдено" }, { status: 404 });
+    return unavailableResponse("deleted", 410);
   }
 
   const isOwner = product.userId === auth.userId;
@@ -71,6 +97,9 @@ export async function PATCH(
     category?: string;
     images?: string[];
   };
+
+  const previousCategory = product.category;
+  const previousStatus = product.status;
 
   const data: Record<string, unknown> = {};
 
@@ -120,8 +149,16 @@ export async function PATCH(
     include: PRODUCT_INCLUDE,
   });
 
-  if (status === "ACTIVE" && product.status !== "ACTIVE") {
+  const isNowActive = updated.status === "ACTIVE";
+
+  if (status === "ACTIVE" && previousStatus !== "ACTIVE") {
     notifySubscribersAboutProduct(updated).catch(console.error);
+  } else if (
+    isNowActive &&
+    category !== undefined &&
+    category !== previousCategory
+  ) {
+    notifySubscribersAboutProductInCategory(updated, category).catch(console.error);
   }
 
   return NextResponse.json(serializeProduct(updated));
@@ -143,7 +180,7 @@ export async function DELETE(
 
   const product = await prisma.product.findUnique({ where: { id } });
   if (!product) {
-    return NextResponse.json({ error: "Оголошення не знайдено" }, { status: 404 });
+    return unavailableResponse("deleted", 410);
   }
 
   const isOwner = product.userId === auth.userId;

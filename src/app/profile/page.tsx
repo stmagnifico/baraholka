@@ -13,11 +13,12 @@ import {
   EyeOff,
   Eye,
   Shield,
+  ArrowUp,
 } from "lucide-react";
 import { Product, ProductStatus } from "@/types";
 import { useTelegramContext } from "@/context/TelegramContext";
 import { formatProductPrice, getDisplayName } from "@/lib/utils";
-import { CATEGORY_MAP, PRODUCT_STATUS_LABELS, PRODUCT_STATUS_COLORS } from "@/lib/constants";
+import { CATEGORY_MAP, PRODUCT_STATUS_LABELS, PRODUCT_STATUS_COLORS, BUMP_COOLDOWN_DAYS } from "@/lib/constants";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/EmptyState";
 import { cn } from "@/lib/utils";
@@ -70,6 +71,25 @@ export default function ProfilePage() {
     });
     if (res.ok) {
       setProducts((prev) => prev.filter((p) => p.id !== id));
+    } else {
+      const err = await res.json().catch(() => ({}));
+      alert((err as { error?: string }).error ?? "Помилка видалення");
+    }
+  };
+
+  const handleBump = async (id: string) => {
+    const res = await fetch(`/api/products/${id}/bump`, {
+      method: "POST",
+      headers: { "x-init-data": initData },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setProducts((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, ...data.product } : p))
+      );
+    } else {
+      const err = await res.json().catch(() => ({}));
+      alert((err as { error?: string }).error ?? "Помилка підняття");
     }
   };
 
@@ -173,6 +193,7 @@ export default function ProfilePage() {
               product={product}
               onStatusChange={handleStatusChange}
               onDelete={handleDelete}
+              onBump={handleBump}
             />
           ))}
         </div>
@@ -185,13 +206,21 @@ function ProfileProductCard({
   product,
   onStatusChange,
   onDelete,
+  onBump,
 }: {
   product: Product;
   onStatusChange: (id: string, status: ProductStatus) => void;
   onDelete: (id: string) => void;
+  onBump: (id: string) => void;
 }) {
   const router = useRouter();
   const image = product.images[0];
+
+  const lastBump = product.bumpedAt ?? product.createdAt;
+  const cooldownMs = BUMP_COOLDOWN_DAYS * 24 * 60 * 60 * 1000;
+  const canBump =
+    product.status === "ACTIVE" &&
+    Date.now() - new Date(lastBump).getTime() >= cooldownMs;
 
   const actions: Array<{
     key: string;
@@ -212,6 +241,15 @@ function ProfileProductCard({
   }
 
   if (product.status === "ACTIVE") {
+    if (canBump) {
+      actions.push({
+        key: "bump",
+        label: "Підняти",
+        icon: <ArrowUp className="w-4 h-4" />,
+        onClick: () => onBump(product.id),
+        className: "text-purple-600 hover:bg-purple-50",
+      });
+    }
     actions.push({
       key: "sold",
       label: "Продано",

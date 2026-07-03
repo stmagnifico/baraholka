@@ -5,6 +5,7 @@ import { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { validateInitData } from "@/lib/telegram";
 import { resolveUserRole, isModerator, canManageAdmins } from "@/lib/roles";
+import { optionalAuth, type OptionalAuth } from "@/lib/product-access";
 
 export class AuthError extends Error {
   constructor(
@@ -15,10 +16,7 @@ export class AuthError extends Error {
   }
 }
 
-export interface AuthContext {
-  userId: bigint;
-  role: UserRole;
-  isModerator: boolean;
+export interface AuthContext extends OptionalAuth {
   canManageAdmins: boolean;
 }
 
@@ -49,6 +47,8 @@ export async function requireAuth(initData: string): Promise<AuthContext> {
     canManageAdmins: canManageAdmins(role),
   };
 }
+
+export { optionalAuth };
 
 export function authErrorResponse(err: unknown) {
   if (err instanceof AuthError) {

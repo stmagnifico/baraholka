@@ -16,9 +16,16 @@ interface ProductForNotify {
 }
 
 export async function notifySubscribersAboutProduct(product: ProductForNotify) {
+  await notifySubscribersAboutProductInCategory(product, product.category);
+}
+
+export async function notifySubscribersAboutProductInCategory(
+  product: ProductForNotify,
+  category: string
+) {
   const [categorySubs, userSubs] = await Promise.all([
     prisma.subscription.findMany({
-      where: { type: "CATEGORY", category: product.category },
+      where: { type: "CATEGORY", category },
     }),
     prisma.subscription.findMany({
       where: { type: "USER", targetUserId: product.userId },
@@ -34,7 +41,7 @@ export async function notifySubscribersAboutProduct(product: ProductForNotify) {
 
   if (recipientIds.size === 0) return;
 
-  const categoryLabel = CATEGORY_MAP[product.category] ?? product.category;
+  const categoryLabel = CATEGORY_MAP[category] ?? category;
   const priceLabel = formatProductPrice({
     price: product.price.toString(),
     currency: product.currency,

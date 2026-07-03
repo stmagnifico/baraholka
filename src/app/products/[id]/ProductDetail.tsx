@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -11,8 +11,10 @@ import {
   Trash2,
   ShieldAlert,
   Share2,
+  Flag,
+  ArrowUp,
 } from "lucide-react";
-import { Product } from "@/types";
+import { Product, ApiError } from "@/types";
 import { formatProductPrice, formatDate, getDisplayName } from "@/lib/utils";
 import {
   CATEGORY_MAP,
@@ -27,6 +29,7 @@ import { useSafeBack } from "@/hooks/useSafeBack";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { ImageGallery } from "@/components/ImageGallery";
+import { ProductUnavailable } from "@/components/ProductUnavailable";
 import { cn } from "@/lib/utils";
 
 export function ProductDetail({ id }: { id: string }) {
@@ -36,18 +39,35 @@ export function ProductDetail({ id }: { id: string }) {
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
-  const [error, setError] = useState("");
+  const [reporting, setReporting] = useState(false);
+  const [unavailableReason, setUnavailableReason] = useState<
+    "deleted" | "hidden" | "reported" | "unavailable" | null
+  >(null);
+
+  const loadProduct = useCallback(async () => {
+    const res = await fetch(`/api/products/${id}`, {
+      headers: initData ? { "x-init-data": initData } : {},
+    });
+    if (!res.ok) {
+      const err = (await res.json().catch(() => ({}))) as ApiError;
+      setUnavailableReason(err.reason ?? "unavailable");
+      setProduct(null);
+      return;
+    }
+    const data = await res.json();
+    setProduct(data);
+    setUnavailableReason(null);
+  }, [id, initData]);
 
   useEffect(() => {
-    fetch(`/api/products/${id}`)
-      .then((r) => {
-        if (!r.ok) throw new Error("not_found");
-        return r.json();
-      })
-      .then(setProduct)
-      .catch(() => setError("Оголошення не знайдено"))
-      .finally(() => setLoading(false));
-  }, [id]);
+    setLoading(true);
+    loadProduct().finally(() => setLoading(false));
+  }, [loadProduct]);
+
+  const handleGone = (err?: ApiError) => {
+    setUnavailableReason(err?.reason ?? "deleted");
+    setProduct(null);
+  };
 
   const handleAdminDelete = async () => {
     if (!product) return;
@@ -62,7 +82,11 @@ export function ProductDetail({ id }: { id: string }) {
         headers: { "x-init-data": initData },
       });
       if (!res.ok) {
-        const err = await res.json();
+        const err = (await res.json().catch(() => ({}))) as ApiError;
+        if (res.status === 410 || res.status === 404) {
+          handleGone(err);
+          return;
+        }
         throw new Error(err.error ?? "Помилка видалення");
       }
       router.push("/");
@@ -73,36 +97,40 @@ export function ProductDetail({ id }: { id: string }) {
     }
   };
 
+  const handleReport = async () => {
+    if (!confirm("Поскаржитись на це оголошення? Воно зникне з вашого каталогу.")) return;
+
+    setReporting(true);
+    try {
+      const res = await fetch(`/api/products/${id}/report`, {
+        method: "POST",
+        headers: { "x-init-data": initData },
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error ?? "Помилка");
+      }
+      setUnavailableReason("reported");
+      setProduct(null);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Помилка");
+    } finally {
+      setReporting(false);
+    }
+  };
+
   if (loading) return <ProductDetailSkeleton />;
 
-  if (error || !product) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen px-6 text-center">
-        <p className="text-lg font-semibold text-[var(--tg-theme-text-color,#111)] mb-2">
-          Оголошення не знайдено
-        </p>
-        <Button variant="secondary" onClick={goBack}>
-          Назад
-        </Button>
-      </div>
-    );
+  if (unavailableReason) {
+    return <ProductUnavailable reason={unavailableReason} onBack={goBack} />;
+  }
+
+  if (!product) {
+    return <ProductUnavailable reason="unavailable" onBack={goBack} />;
   }
 
   const isOwner = user?.id === Number(product.userId);
   const canModerate = isModerator && !isOwner;
-
-  if (product.status === "DRAFT" && !isOwner && !isModerator) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen px-6 text-center">
-        <p className="text-lg font-semibold text-[var(--tg-theme-text-color,#111)] mb-2">
-          Оголошення не знайдено
-        </p>
-        <Button variant="secondary" onClick={goBack}>
-          Назад
-        </Button>
-      </div>
-    );
-  }
 
   const images =
     product.images.length > 0
@@ -124,7 +152,7 @@ export function ProductDetail({ id }: { id: string }) {
     }
   };
 
-  const canShare = product.status !== "DRAFT";
+  const canShare = product.status === "ACTIVE" || product.status === "SOLD";
   const handleShare = () => {
     shareProductInTelegram(webApp, {
       id: product.id,
@@ -133,6 +161,8 @@ export function ProductDetail({ id }: { id: string }) {
       price: product.price,
     });
   };
+
+  const canReport = !isOwner && !isModerator && product.status === "ACTIVE";
 
   return (
     <div className="pb-8">
@@ -211,6 +241,9 @@ export function ProductDetail({ id }: { id: string }) {
         <div className="flex items-center gap-1 text-xs text-[var(--tg-theme-hint-color,#888)] mb-6">
           <Calendar className="w-3.5 h-3.5" />
           <span>{formatDate(product.createdAt)}</span>
+          {product.bumpedAt && product.bumpedAt !== product.createdAt && (
+            <span className="ml-2">· Піднято {formatDate(product.bumpedAt)}</span>
+          )}
         </div>
 
         {product.user && (
@@ -255,6 +288,18 @@ export function ProductDetail({ id }: { id: string }) {
           </Button>
         )}
 
+        {canReport && (
+          <Button
+            variant="ghost"
+            className="gap-2 mb-3 text-[var(--tg-theme-hint-color,#888)]"
+            loading={reporting}
+            onClick={handleReport}
+          >
+            <Flag className="w-4 h-4" />
+            Поскаржитись на оголошення
+          </Button>
+        )}
+
         {!isSold && contactUrl && (
           <Button size="lg" className="gap-2" onClick={handleContact}>
             <MessageCircle className="w-5 h-5" />
@@ -268,19 +313,19 @@ export function ProductDetail({ id }: { id: string }) {
 
 function ProductDetailSkeleton() {
   return (
-    <div className="animate-pulse">
-      <div className="aspect-square bg-gray-200 dark:bg-gray-800" />
-      <div className="bg-white rounded-t-3xl -mt-4 px-4 pt-5 space-y-3">
+    <div className="animate-pulse bg-[var(--tg-theme-bg-color,#fff)]">
+      <div className="aspect-square bg-[var(--tg-theme-secondary-bg-color,#f0f0f0)]" />
+      <div className="rounded-t-3xl -mt-4 px-4 pt-5 space-y-3">
         <div className="flex gap-2">
-          <div className="h-6 w-16 rounded-full bg-gray-200 dark:bg-gray-700" />
-          <div className="h-6 w-24 rounded-full bg-gray-200 dark:bg-gray-700" />
+          <div className="h-6 w-16 rounded-full bg-[var(--tg-theme-secondary-bg-color,#f0f0f0)]" />
+          <div className="h-6 w-24 rounded-full bg-[var(--tg-theme-secondary-bg-color,#f0f0f0)]" />
         </div>
-        <div className="h-7 bg-gray-200 dark:bg-gray-700 rounded w-3/4" />
-        <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/3" />
+        <div className="h-7 bg-[var(--tg-theme-secondary-bg-color,#f0f0f0)] rounded w-3/4" />
+        <div className="h-8 bg-[var(--tg-theme-secondary-bg-color,#f0f0f0)] rounded w-1/3" />
         <div className="space-y-2">
-          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded" />
-          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded" />
-          <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3" />
+          <div className="h-4 bg-[var(--tg-theme-secondary-bg-color,#f0f0f0)] rounded" />
+          <div className="h-4 bg-[var(--tg-theme-secondary-bg-color,#f0f0f0)] rounded" />
+          <div className="h-4 bg-[var(--tg-theme-secondary-bg-color,#f0f0f0)] rounded w-2/3" />
         </div>
       </div>
     </div>

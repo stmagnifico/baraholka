@@ -11,9 +11,11 @@ import { Button } from "@/components/ui/Button";
 import { Product } from "@/types";
 import { APP_NAME } from "@/lib/constants";
 import { useDebounce } from "@/hooks/useDebounce";
+import { useTelegramContext } from "@/context/TelegramContext";
 
 export default function CatalogPage() {
   const router = useRouter();
+  const { initData } = useTelegramContext();
   const [products, setProducts] = useState<Product[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -32,7 +34,9 @@ export default function CatalogPage() {
           ...(q ? { search: q } : {}),
           page: String(pg),
         });
-        const res = await fetch(`/api/products?${params}`);
+        const res = await fetch(`/api/products?${params}`, {
+          headers: initData ? { "x-init-data": initData } : {},
+        });
         const data = await res.json();
         setProducts((prev) => (replace ? data.products : [...prev, ...data.products]));
         setTotal(data.total);
@@ -41,7 +45,7 @@ export default function CatalogPage() {
         setRefreshing(false);
       }
     },
-    []
+    [initData]
   );
 
   useEffect(() => {
@@ -127,11 +131,11 @@ function ProductGridSkeleton() {
     <div className="grid grid-cols-2 gap-3">
       {Array.from({ length: 6 }).map((_, i) => (
         <div key={i} className="rounded-2xl overflow-hidden bg-[var(--tg-theme-bg-color,#fff)] animate-pulse">
-          <div className="aspect-square bg-gray-200 dark:bg-gray-700" />
+          <div className="aspect-square bg-[var(--tg-theme-secondary-bg-color,#f0f0f0)]" />
           <div className="p-3 space-y-2">
-            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-2/3" />
-            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded" />
-            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4" />
+            <div className="h-3 bg-[var(--tg-theme-secondary-bg-color,#f0f0f0)] rounded w-2/3" />
+            <div className="h-4 bg-[var(--tg-theme-secondary-bg-color,#f0f0f0)] rounded" />
+            <div className="h-4 bg-[var(--tg-theme-secondary-bg-color,#f0f0f0)] rounded w-3/4" />
           </div>
         </div>
       ))}

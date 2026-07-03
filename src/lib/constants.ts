@@ -48,3 +48,13 @@ export const USER_ROLE_LABELS: Record<string, string> = {
   ADMIN: "Адмін",
   SUPERADMIN: "Суперадмін",
 };
+
+export const BUMP_COOLDOWN_DAYS = 5;
+export const REPORT_AUTO_HIDE_THRESHOLD = 3;
+
+export const PRODUCT_UNAVAILABLE_MESSAGES: Record<string, string> = {
+  deleted: "Оголошення видалено",
+  hidden: "Оголошення приховано продавцем",
+  reported: "Ви поскаржились на це оголошення",
+  unavailable: "Оголошення недоступне",
+};

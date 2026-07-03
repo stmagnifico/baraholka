@@ -11,6 +11,7 @@ export function serializeProduct(p: {
   userId: bigint;
   adminEditedAt?: Date | null;
   adminEditedById?: bigint | null;
+  bumpedAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
   user?: {
@@ -34,6 +35,7 @@ export function serializeProduct(p: {
     userId: p.userId.toString(),
     adminEditedAt: p.adminEditedAt?.toISOString() ?? null,
     adminEditedById: p.adminEditedById?.toString() ?? null,
+    bumpedAt: p.bumpedAt?.toISOString() ?? null,
     createdAt: p.createdAt.toISOString(),
     updatedAt: p.updatedAt.toISOString(),
     user: p.user ? { ...p.user, id: p.user.id.toString() } : undefined,

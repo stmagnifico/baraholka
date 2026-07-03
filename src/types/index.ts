@@ -36,6 +36,7 @@ export interface Product {
   adminEditedById?: string | null;
   adminEditedBy?: Pick<User, "id" | "username" | "firstName" | "lastName" | "photoUrl"> | null;
   user?: Pick<User, "id" | "username" | "firstName" | "lastName" | "photoUrl">;
+  bumpedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -49,4 +50,5 @@ export interface ProductsResponse {
 
 export interface ApiError {
   error: string;
+  reason?: "deleted" | "hidden" | "reported" | "unavailable";
 }

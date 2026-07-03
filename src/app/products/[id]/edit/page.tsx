@@ -4,9 +4,10 @@ import { use, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ShieldAlert } from "lucide-react";
 import { ProductForm } from "@/components/ProductForm";
+import { ProductUnavailable } from "@/components/ProductUnavailable";
 import { useTelegramContext } from "@/context/TelegramContext";
 import { useSafeBack } from "@/hooks/useSafeBack";
-import { Product } from "@/types";
+import { Product, ApiError } from "@/types";
 import { getDisplayName } from "@/lib/utils";
 
 interface PageProps {
@@ -21,17 +22,27 @@ export default function EditProductPage({ params }: PageProps) {
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
+  const [unavailableReason, setUnavailableReason] = useState<
+    "deleted" | "hidden" | "reported" | "unavailable" | null
+  >(null);
 
   useEffect(() => {
-    fetch(`/api/products/${id}`)
-      .then((r) => {
-        if (!r.ok) throw new Error("not_found");
+    fetch(`/api/products/${id}`, {
+      headers: initData ? { "x-init-data": initData } : {},
+    })
+      .then(async (r) => {
+        if (!r.ok) {
+          const err = (await r.json().catch(() => ({}))) as ApiError;
+          setUnavailableReason(err.reason ?? "unavailable");
+          return null;
+        }
         return r.json();
       })
-      .then(setProduct)
-      .catch(() => router.replace("/profile"))
+      .then((data) => {
+        if (data) setProduct(data);
+      })
       .finally(() => setFetching(false));
-  }, [id, router]);
+  }, [id, initData]);
 
   const handleSubmit = async (
     data: {
@@ -63,7 +74,12 @@ export default function EditProductPage({ params }: PageProps) {
       });
 
       if (!res.ok) {
-        const err = await res.json();
+        const err = (await res.json().catch(() => ({}))) as ApiError;
+        if (res.status === 410 || res.status === 404) {
+          setUnavailableReason(err.reason ?? "deleted");
+          setProduct(null);
+          return;
+        }
         throw new Error(err.error ?? "Помилка сервера");
       }
 
@@ -76,17 +92,25 @@ export default function EditProductPage({ params }: PageProps) {
     }
   };
 
-  if (fetching || !product) {
+  if (fetching) {
     return (
       <div className="px-4 pt-4">
-        <div className="h-10 w-48 bg-gray-200 rounded-xl animate-pulse mb-6" />
+        <div className="h-10 w-48 bg-[var(--tg-theme-secondary-bg-color,#f0f0f0)] rounded-xl animate-pulse mb-6" />
         <div className="space-y-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-12 bg-gray-200 rounded-xl animate-pulse" />
+            <div key={i} className="h-12 bg-[var(--tg-theme-secondary-bg-color,#f0f0f0)] rounded-xl animate-pulse" />
           ))}
         </div>
       </div>
     );
+  }
+
+  if (unavailableReason) {
+    return <ProductUnavailable reason={unavailableReason} onBack={goBack} />;
+  }
+
+  if (!product) {
+    return <ProductUnavailable reason="unavailable" onBack={goBack} />;
   }
 
   const isOwner = user?.id === Number(product.userId);
