@@ -69,6 +69,20 @@ export async function setMyCommands() {
   });
 }
 
+export async function setChatMenuButton(text = "🛍 Барахолка") {
+  return callTelegramApi("setChatMenuButton", {
+    menu_button: {
+      type: "web_app",
+      text,
+      web_app: { url: getWebAppUrl() },
+    },
+  });
+}
+
+export async function getWebhookInfo() {
+  return callTelegramApi("getWebhookInfo");
+}
+
 export function webAppKeyboardButton(text: string, url?: string) {
   return {
     text,

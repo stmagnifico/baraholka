@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { setWebhook, setMyCommands } from "@/lib/bot/telegram-api";
+import {
+  setWebhook,
+  setMyCommands,
+  setChatMenuButton,
+  getWebhookInfo,
+} from "@/lib/bot/telegram-api";
 
 export async function POST(req: NextRequest) {
   const setupSecret = process.env.TELEGRAM_SETUP_SECRET;
@@ -21,11 +26,14 @@ export async function POST(req: NextRequest) {
     `${process.env.WEBAPP_URL?.replace(/\/$/, "")}/api/telegram/webhook`;
 
   await setMyCommands();
+  await setChatMenuButton();
   await setWebhook(webhookUrl, process.env.TELEGRAM_WEBHOOK_SECRET);
+  const webhookInfo = await getWebhookInfo();
 
   return NextResponse.json({
     ok: true,
     webhookUrl,
-    message: "Команди бота та webhook налаштовано",
+    webhookInfo,
+    message: "Команди бота, кнопка меню та webhook налаштовано",
   });
 }
