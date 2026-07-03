@@ -10,6 +10,7 @@ import {
   Pencil,
   Trash2,
   ShieldAlert,
+  Share2,
 } from "lucide-react";
 import { Product } from "@/types";
 import { formatProductPrice, formatDate, getDisplayName } from "@/lib/utils";
@@ -20,7 +21,9 @@ import {
   ADMIN_EDITED_NOTICE,
 } from "@/lib/constants";
 import { getTelegramContactUrl } from "@/lib/telegram-client";
+import { shareProductInTelegram } from "@/lib/share";
 import { useTelegramContext } from "@/context/TelegramContext";
+import { useSafeBack } from "@/hooks/useSafeBack";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { ImageGallery } from "@/components/ImageGallery";
@@ -33,6 +36,7 @@ interface PageProps {
 export default function ProductPage({ params }: PageProps) {
   const { id } = use(params);
   const router = useRouter();
+  const goBack = useSafeBack("/");
   const { user, initData, webApp, isModerator } = useTelegramContext();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
@@ -82,7 +86,7 @@ export default function ProductPage({ params }: PageProps) {
         <p className="text-lg font-semibold text-[var(--tg-theme-text-color,#111)] mb-2">
           Оголошення не знайдено
         </p>
-        <Button variant="secondary" onClick={() => router.back()}>
+        <Button variant="secondary" onClick={goBack}>
           Назад
         </Button>
       </div>
@@ -98,7 +102,7 @@ export default function ProductPage({ params }: PageProps) {
         <p className="text-lg font-semibold text-[var(--tg-theme-text-color,#111)] mb-2">
           Оголошення не знайдено
         </p>
-        <Button variant="secondary" onClick={() => router.back()}>
+        <Button variant="secondary" onClick={goBack}>
           Назад
         </Button>
       </div>
@@ -125,15 +129,35 @@ export default function ProductPage({ params }: PageProps) {
     }
   };
 
+  const canShare = product.status !== "DRAFT";
+  const handleShare = () => {
+    shareProductInTelegram(webApp, {
+      id: product.id,
+      title: product.title,
+      isFree: product.isFree,
+      price: product.price,
+    });
+  };
+
   return (
     <div className="pb-8">
       <div className="relative">
         <button
-          onClick={() => router.back()}
+          onClick={goBack}
           className="absolute top-4 left-4 z-20 w-9 h-9 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center text-white"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
+
+        {canShare && (
+          <button
+            onClick={handleShare}
+            className="absolute top-4 right-4 z-20 w-9 h-9 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center text-white"
+            aria-label="Поділитися"
+          >
+            <Share2 className="w-5 h-5" />
+          </button>
+        )}
 
         <ImageGallery images={images} alt={product.title} isSold={isSold} />
       </div>

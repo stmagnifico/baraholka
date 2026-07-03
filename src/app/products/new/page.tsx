@@ -1,13 +1,13 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { ProductForm } from "@/components/ProductForm";
 import { UsernameRequired } from "@/components/UsernameRequired";
 import { useTelegramContext } from "@/context/TelegramContext";
+import { useSafeBack } from "@/hooks/useSafeBack";
 import { useState } from "react";
 
 export default function NewProductPage() {
-  const router = useRouter();
+  const goBack = useSafeBack("/");
   const { user, initData, isTelegramEnv, isReady } = useTelegramContext();
   const [loading, setLoading] = useState(false);
 
@@ -94,7 +94,7 @@ export default function NewProductPage() {
       loading={loading}
       initData={initData}
       onSubmit={handleSubmit}
-      onCancel={() => router.back()}
+      onCancel={goBack}
     />
   );
 }

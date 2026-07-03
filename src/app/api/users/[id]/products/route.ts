@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { validateInitData } from "@/lib/telegram";
+import { serializeProduct } from "@/lib/serialize-product";
 
 export async function GET(
   req: NextRequest,
@@ -29,13 +30,5 @@ export async function GET(
     orderBy: { createdAt: "desc" },
   });
 
-  return NextResponse.json(
-    products.map((p) => ({
-      ...p,
-      price: p.price.toString(),
-      userId: p.userId.toString(),
-      createdAt: p.createdAt.toISOString(),
-      updatedAt: p.updatedAt.toISOString(),
-    }))
-  );
+  return NextResponse.json(products.map(serializeProduct));
 }

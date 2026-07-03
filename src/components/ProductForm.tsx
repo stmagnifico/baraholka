@@ -2,7 +2,7 @@
 
 import { useState, useRef, FormEvent, useEffect } from "react";
 import Image from "next/image";
-import { ArrowLeft, Camera, ImagePlus, Loader2, X, CheckCircle, Share2, ExternalLink } from "lucide-react";
+import { ArrowLeft, ImagePlus, Loader2, X, CheckCircle, Share2, ExternalLink } from "lucide-react";
 import { CATEGORIES } from "@/lib/constants";
 import { compressImage } from "@/lib/image-compress";
 import { shareProductInTelegram } from "@/lib/share";
@@ -80,8 +80,7 @@ export function ProductForm({
   const [imageError, setImageError] = useState("");
   const { webApp } = useTelegramContext();
   const router = useRouter();
-  const galleryInputRef = useRef<HTMLInputElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const blobUrlsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
@@ -291,28 +290,18 @@ export function ProductForm({
               </div>
             ))}
             {imageItems.length < MAX_IMAGES && (
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => galleryInputRef.current?.click()}
-                  className="w-20 h-20 rounded-xl border-2 border-dashed border-[var(--tg-theme-hint-color,#aaa)] flex flex-col items-center justify-center text-[var(--tg-theme-hint-color,#888)] gap-1 transition-colors hover:border-[var(--tg-theme-button-color,#2481cc)]"
-                >
-                  <ImagePlus className="w-5 h-5" />
-                  <span className="text-[10px]">Галерея</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => cameraInputRef.current?.click()}
-                  className="w-20 h-20 rounded-xl border-2 border-dashed border-[var(--tg-theme-hint-color,#aaa)] flex flex-col items-center justify-center text-[var(--tg-theme-hint-color,#888)] gap-1 transition-colors hover:border-[var(--tg-theme-button-color,#2481cc)]"
-                >
-                  <Camera className="w-5 h-5" />
-                  <span className="text-[10px]">Камера</span>
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-20 h-20 rounded-xl border-2 border-dashed border-[var(--tg-theme-hint-color,#aaa)] flex flex-col items-center justify-center text-[var(--tg-theme-hint-color,#888)] gap-1 transition-colors hover:border-[var(--tg-theme-button-color,#2481cc)]"
+              >
+                <ImagePlus className="w-6 h-6" />
+                <span className="text-[10px]">Додати фото</span>
+              </button>
             )}
           </div>
           <input
-            ref={galleryInputRef}
+            ref={fileInputRef}
             type="file"
             accept="image/*"
             multiple
@@ -322,19 +311,8 @@ export function ProductForm({
               e.target.value = "";
             }}
           />
-          <input
-            ref={cameraInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="hidden"
-            onChange={(e) => {
-              void handleFiles(e.target.files);
-              e.target.value = "";
-            }}
-          />
           <p className="text-xs text-[var(--tg-theme-hint-color,#888)] mt-1.5">
-            До {MAX_IMAGES} фото. Можна обрати з галереї або зробити знімок.
+            До {MAX_IMAGES} фото. Оберіть з галереї або зробіть знімок камерою.
           </p>
           {imageError && <p className="text-xs text-red-500 mt-1">{imageError}</p>}
         </div>

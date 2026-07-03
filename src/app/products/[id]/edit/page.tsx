@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ShieldAlert } from "lucide-react";
 import { ProductForm } from "@/components/ProductForm";
 import { useTelegramContext } from "@/context/TelegramContext";
+import { useSafeBack } from "@/hooks/useSafeBack";
 import { Product } from "@/types";
 import { getDisplayName } from "@/lib/utils";
 
@@ -15,6 +16,7 @@ interface PageProps {
 export default function EditProductPage({ params }: PageProps) {
   const { id } = use(params);
   const router = useRouter();
+  const goBack = useSafeBack("/profile");
   const { user, initData, isModerator } = useTelegramContext();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(false);
@@ -120,7 +122,7 @@ export default function EditProductPage({ params }: PageProps) {
           images: product.images,
         }}
         onSubmit={handleSubmit}
-        onCancel={() => router.back()}
+        onCancel={goBack}
       />
     </div>
   );
