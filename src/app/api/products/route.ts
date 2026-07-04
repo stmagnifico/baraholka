@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { validateInitData } from "@/lib/telegram";
 import { PAGE_SIZE, USERNAME_REQUIRED_ERROR } from "@/lib/constants";
 import { notifySubscribersAboutProduct } from "@/lib/bot/notifications";
-import { ProductStatus } from "@prisma/client";
+import type { ProductStatus } from "@/types";
 import { serializeProduct } from "@/lib/serialize-product";
 import { optionalAuth, getViewerReportedProductIds } from "@/lib/product-access";
 
